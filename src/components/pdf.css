@@ -1,0 +1,21 @@
+/* Styling for the container holding the button */
+.pdfButtonContainer {
+  margin-top: 40px;
+  display: flex;
+  justify-content: flex-end; /* Align to the right, like the Next/Previous buttons */
+  width: 100%; /* Full width */
+  margin-bottom: 20px;
+}
+
+/* Styling for the download button */
+.pdfDownloadButton {
+  background-color: #39d36c; /* Green color */
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  width: 100%; /* Same width as Next and Previous buttons */
+  transition: background-color 0.3s, transform 0.2s;
+}

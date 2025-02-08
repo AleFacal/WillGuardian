@@ -1,0 +1,154 @@
+/* General Styles */
+.section {
+  display: flex;
+  flex-direction: row;
+  margin-left: 20px;
+  margin-bottom: 50px;
+  align-items: center;
+}
+
+.sectionText {
+  width: 45%; /* Adjusting width to give a good balance */
+  font-size: 20px;
+  margin-right: 10%;
+  padding: 10px;
+}
+
+.sectionImage {
+  width: 50%; /* Adjust image width */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image {
+  margin-top: 30px;
+  border-radius: 8%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  height: auto;
+  max-width: 500px; /* Maximum width for image */
+}
+
+/* Text Section Styling */
+.text-xl {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* Main Button Styling */
+button {
+  padding: 15px;
+  width: 100%;
+  font-size: 18px;
+  border-radius: 10px;
+}
+
+.bg-blue-600 {
+  background-color: #3182ce;
+}
+
+.bg-green-500 {
+  background-color: #38a169;
+}
+
+.bg-blue-700 {
+  background-color: #2b6cb0;
+}
+
+.bg-green-700 {
+  background-color: #2f855a;
+}
+
+.shadow-lg {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.rounded-lg {
+  border-radius: 10px;
+}
+
+.hover\:bg-blue-700:hover {
+  background-color: #2b6cb0;
+}
+
+.hover\:bg-green-700:hover {
+  background-color: #2f855a;
+}
+
+.transition {
+  transition: all 0.3s ease;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* Trusted Contacts Section */
+.bg-white {
+  background-color: white;
+}
+
+.dark\:bg-gray-800 {
+  background-color: #2d3748;
+}
+
+.rounded-lg {
+  border-radius: 10px;
+}
+
+.shadow-lg {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.border-gray-300 {
+  border-color: #e2e8f0;
+}
+
+.dark\:border-gray-700 {
+  border-color: #4a5568;
+}
+
+.text-gray-700 {
+  color: #4a4a4a;
+}
+
+.flex {
+  display: flex;
+  gap: 10px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.space-y-2 {
+  margin-top: 10px;
+  padding: 0;
+}
+
+input[type="email"] {
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #ccc;
+}
+
+input[type="email"]:focus {
+  outline: none;
+  border-color: #3182ce;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+ul {
+  padding: 0;
+}
+
+ul li {
+  border-bottom: 1px solid #ccc;
+  padding: 10px;
+}

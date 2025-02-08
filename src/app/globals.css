@@ -2,20 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Global font and body styles */
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", sans-serif;
+}
+
+/* Add this to your global styles */
+.bg-lightblue {
+  background-color: #ffff; /* Light blue background color */
+}
+
+/* Header */
+.header {
+  background-color: #2d2e33; /* Charcoal gray */
+  color: rgb(10, 10, 10);
+  padding: 15px 0;
+  text-align: center;
+}
+
+/* Footer */
+.footer {
+  background-color: #ffff; /* Charcoal gray */
+  color: rgb(10, 10, 10);
+  padding: 10px 0;
+  text-align: center;
 }
