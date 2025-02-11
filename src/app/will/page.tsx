@@ -1,12 +1,11 @@
+// File: WillGeneratorPage.tsx
 "use client";
 
 import "./styles.css";
-
 import { useState, useEffect } from "react";
 import { generateWill } from "@/lib/openai";
 import PDFDownloadButton from "@/components/PDFDownloadButton";
-import { CountryKey } from "@/components/WillPDF";
-import { CountTokensRequest } from "firebase/vertexai";
+import { CountryKey } from "@/components/PDFDownloadButton";
 
 export default function WillGeneratorPage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -43,9 +42,9 @@ export default function WillGeneratorPage() {
   // Generated Will & Loading State
   const [willText, setWillText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false); // New state for loading
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Extra state: Draft saved flag and copy-to-clipboard state
+  // Extra state for saved draft and copy feedback
   const [draftSaved, setDraftSaved] = useState(false);
   const [copySuccess, setCopySuccess] = useState("");
 
@@ -72,44 +71,45 @@ export default function WillGeneratorPage() {
       ? languageOptionsMap[selectedCountry][0]
       : "English";
     setSelectedLanguage(language);
-  }, [selectedCountry]); // This runs whenever the selectedCountry changes
+  }, [selectedCountry]);
 
   const countryLabels = {
     us: {
       countrySelection: "Country Selection",
-      fullName: "Full Name",
-      dob: "Date of Birth",
-      address: "Address",
+      fullName: "Full Name (as per legal documents)",
+      dob: "Date of Birth (YYYY-MM-DD)",
+      address: "Residential Address",
       nationality: "Nationality",
-      executor: "Executor",
-      alternateExecutor: "Alternate Executor",
-      executorInstructions: "Executor Instructions",
-      specificBequests: "Specific Bequests",
+      executor: "Executor (Name of trusted person)",
+      alternateExecutor: "Alternate Executor (Name of backup)",
+      executorInstructions: "Instructions for the Executor",
+      specificBequests: "Specific Bequests (List and description)",
       residuaryEstate: "Residuary Estate Instructions",
-      beneficiaries: "Beneficiaries",
-      funeralInstructions: "Funeral Instructions",
-      legalNotes: "Legal Notes",
+      beneficiaries: "Beneficiaries (Names and details)",
+      funeralInstructions: "Funeral Instructions (Details)",
+      legalNotes: "Legal Notes/Revocation Clause",
     },
     uk: {
+      // Similar labels in English or local language.
       countrySelection: "Country Selection",
-      fullName: "Full Name",
-      dob: "Date of Birth",
-      address: "Address",
+      fullName: "Full Name (as per legal documents)",
+      dob: "Date of Birth (YYYY-MM-DD)",
+      address: "Residential Address",
       nationality: "Nationality",
-      executor: "Executor",
-      alternateExecutor: "Alternate Executor",
-      executorInstructions: "Executor Instructions",
+      executor: "Executor (Name of trusted person)",
+      alternateExecutor: "Alternate Executor (Name of backup)",
+      executorInstructions: "Instructions for the Executor",
       specificBequests: "Specific Bequests",
       residuaryEstate: "Residuary Estate Instructions",
       beneficiaries: "Beneficiaries",
       funeralInstructions: "Funeral Instructions",
-      legalNotes: "Legal Notes",
+      legalNotes: "Legal Notes/Revocation Clause",
     },
     de: {
       countrySelection: "Länderauswahl",
-      fullName: "Vollständiger Name",
-      dob: "Geburtsdatum",
-      address: "Adresse",
+      fullName: "Vollständiger Name (wie im Ausweis)",
+      dob: "Geburtsdatum (TT.MM.JJJJ)",
+      address: "Wohnadresse",
       nationality: "Nationalität",
       executor: "Testamentsvollstrecker",
       alternateExecutor: "Stellvertretender Testamentsvollstrecker",
@@ -122,23 +122,23 @@ export default function WillGeneratorPage() {
     },
     fr: {
       countrySelection: "Sélection du pays",
-      fullName: "Nom complet",
-      dob: "Date de naissance",
+      fullName: "Nom complet (tel qu’indiqué sur vos documents)",
+      dob: "Date de naissance (AAAA-MM-JJ)",
       address: "Adresse",
       nationality: "Nationalité",
       executor: "Exécuteur testamentaire",
-      alternateExecutor: "Exécuteur testamentaire suppléant",
-      executorInstructions: "Instructions à l'exécuteur testamentaire",
+      alternateExecutor: "Exécuteur suppléant",
+      executorInstructions: "Instructions pour l'exécuteur",
       specificBequests: "Légataires spécifiques",
-      residuaryEstate: "Instructions sur le reste de l'héritage",
+      residuaryEstate: "Instructions concernant le reste de l'héritage",
       beneficiaries: "Bénéficiaires",
       funeralInstructions: "Instructions funéraires",
       legalNotes: "Notes légales",
     },
     es: {
       countrySelection: "Selección de país",
-      fullName: "Nombre completo",
-      dob: "Fecha de nacimiento",
+      fullName: "Nombre completo (según documentos legales)",
+      dob: "Fecha de nacimiento (AAAA-MM-DD)",
       address: "Dirección",
       nationality: "Nacionalidad",
       executor: "Ejecutor del testamento",
@@ -151,11 +151,11 @@ export default function WillGeneratorPage() {
       legalNotes: "Notas legales",
     },
     ch: {
-      // Add the Switzerland (German) labels here
+      // For Switzerland (in German)
       countrySelection: "Länderauswahl",
-      fullName: "Vollständiger Name",
-      dob: "Geburtsdatum",
-      address: "Adresse",
+      fullName: "Vollständiger Name (laut Ausweis)",
+      dob: "Geburtsdatum (TT.MM.JJJJ)",
+      address: "Wohnadresse",
       nationality: "Nationalität",
       executor: "Testamentsvollstrecker",
       alternateExecutor: "Stellvertretender Testamentsvollstrecker",
@@ -170,11 +170,13 @@ export default function WillGeneratorPage() {
 
   const languageOptions = languageOptionsMap[selectedCountry] || ["English"];
 
-  const countriesRequiringWitnesses = ["uk", "de", "ch"]; // These countries require witnesses
+  // (Optional) For countries that require witnesses, you can add witness input fields.
+  const countriesRequiringWitnesses = ["uk", "de", "ch"];
 
   const handleNextStep = () => setCurrentStep(currentStep + 1);
   const handlePreviousStep = () => setCurrentStep(currentStep - 1);
 
+  // Load saved draft (if any)
   useEffect(() => {
     const savedDraft = localStorage.getItem("willDraft");
     if (savedDraft) {
@@ -271,13 +273,12 @@ export default function WillGeneratorPage() {
 
     try {
       let prompt = `Generate a legally valid and professional Last Will and Testament in ${selectedLanguage} for the following details.\n\n`;
-      prompt += `Full Name: ${fullName}\nDate of Birth: ${dob}\nAddress: ${address}\nNationality: ${nationality}\n`;
-      prompt += `Executor Information: ${executor}\nAlternate Executor: ${alternateExecutor}\nExecutor Instructions: ${executorInstructions}\n`;
-      prompt += `Specific Bequests: ${specificBequests}\nResiduary Estate: ${residuaryEstate}\nBeneficiaries: ${beneficiaries}\n`;
-      prompt += `Funeral Instructions: ${funeralInstructions}\nLegal Notes/Revocation Clause: ${legalNotes}\n`;
+      prompt += `Full Name: ${fullName}\nDate of Birth: ${dob}\nAddress: ${address}\nNationality: ${nationality}\nMarital Status: ${maritalStatus}\nIdentification Number: ${idNumber}\n\n`;
+      prompt += `Executor Information:\n  Executor: ${executor}\n  Alternate Executor: ${alternateExecutor}\n  Executor Instructions: ${executorInstructions}\n\n`;
+      prompt += `Bequests & Beneficiaries:\n  Specific Bequests: ${specificBequests}\n  Residuary Estate: ${residuaryEstate}\n  Beneficiaries: ${beneficiaries}\n\n`;
+      prompt += `Additional Instructions:\n  Funeral Instructions: ${funeralInstructions}\n  Legal Notes/Revocation Clause: ${legalNotes}\n\n`;
       prompt += `Country: ${selectedCountry}\nTestament Language: ${selectedLanguage}\n`;
 
-      // Make sure to pass selectedLanguage explicitly to the API
       const text = await generateWill(
         fullName,
         dob,
@@ -288,10 +289,10 @@ export default function WillGeneratorPage() {
         executorInstructions,
         `${specificBequests}\n${residuaryEstate}`,
         beneficiaries,
-        "", // Witnesses can be left as an empty string if no information is provided
+        "", // Witnesses (if applicable)
         `${funeralInstructions}\n${legalNotes}`,
         selectedCountry,
-        selectedLanguage // Explicitly pass the selected language
+        selectedLanguage
       );
       setWillText(text);
     } catch (error) {
@@ -334,11 +335,11 @@ export default function WillGeneratorPage() {
                 required
                 className="input-field"
               >
-                <option value="us">United States</option>
-                <option value="uk">United Kingdom</option>
-                <option value="de">Germany</option>
-                <option value="fr">France</option>
-                <option value="es">Spain</option>
+                {countryOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="buttonContainer single-button">
@@ -357,7 +358,7 @@ export default function WillGeneratorPage() {
         {currentStep === 2 && (
           <div>
             <h2 className="text-xl font-semibold mb-2 border-b pb-1">
-              {countryLabels[selectedCountry].fullName}
+              Personal Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -369,7 +370,7 @@ export default function WillGeneratorPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  placeholder={countryLabels[selectedCountry].fullName}
+                  placeholder="e.g., John Doe (as per your passport)"
                   className="input-field"
                 />
               </div>
@@ -394,7 +395,7 @@ export default function WillGeneratorPage() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   required
-                  placeholder={countryLabels[selectedCountry].address}
+                  placeholder="e.g., 123 Main Street, City, Country"
                   className="input-field"
                 />
               </div>
@@ -406,7 +407,29 @@ export default function WillGeneratorPage() {
                   type="text"
                   value={nationality}
                   onChange={(e) => setNationality(e.target.value)}
-                  placeholder={countryLabels[selectedCountry].nationality}
+                  placeholder="e.g., American"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Marital Status</label>
+                <input
+                  type="text"
+                  value={maritalStatus}
+                  onChange={(e) => setMaritalStatus(e.target.value)}
+                  placeholder="e.g., Single, Married"
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">
+                  Identification Number
+                </label>
+                <input
+                  type="text"
+                  value={idNumber}
+                  onChange={(e) => setIdNumber(e.target.value)}
+                  placeholder="e.g., Passport or National ID number"
                   className="input-field"
                 />
               </div>
@@ -427,7 +450,7 @@ export default function WillGeneratorPage() {
         {currentStep === 3 && (
           <div>
             <h2 className="text-xl font-semibold mb-2 border-b pb-1">
-              {countryLabels[selectedCountry].executor}
+              Executor Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -439,7 +462,7 @@ export default function WillGeneratorPage() {
                   value={executor}
                   onChange={(e) => setExecutor(e.target.value)}
                   required
-                  placeholder={countryLabels[selectedCountry].executor}
+                  placeholder="e.g., Jane Smith"
                   className="input-field"
                 />
               </div>
@@ -451,7 +474,7 @@ export default function WillGeneratorPage() {
                   type="text"
                   value={alternateExecutor}
                   onChange={(e) => setAlternateExecutor(e.target.value)}
-                  placeholder={countryLabels[selectedCountry].alternateExecutor}
+                  placeholder="e.g., Robert Brown"
                   className="input-field"
                 />
               </div>
@@ -462,9 +485,7 @@ export default function WillGeneratorPage() {
                 <textarea
                   value={executorInstructions}
                   onChange={(e) => setExecutorInstructions(e.target.value)}
-                  placeholder={
-                    countryLabels[selectedCountry].executorInstructions
-                  }
+                  placeholder="Provide detailed instructions for the executor..."
                   className="input-field"
                 />
               </div>
@@ -492,7 +513,7 @@ export default function WillGeneratorPage() {
         {currentStep === 4 && (
           <div>
             <h2 className="text-xl font-semibold mb-2 border-b pb-1">
-              {countryLabels[selectedCountry].specificBequests}
+              Bequests & Beneficiaries
             </h2>
             <div className="grid grid-cols-1 gap-4">
               <div>
@@ -502,7 +523,7 @@ export default function WillGeneratorPage() {
                 <textarea
                   value={specificBequests}
                   onChange={(e) => setSpecificBequests(e.target.value)}
-                  placeholder={countryLabels[selectedCountry].specificBequests}
+                  placeholder="Detail specific items or amounts bequeathed..."
                   className="input-field"
                 />
               </div>
@@ -513,7 +534,7 @@ export default function WillGeneratorPage() {
                 <textarea
                   value={residuaryEstate}
                   onChange={(e) => setResiduaryEstate(e.target.value)}
-                  placeholder={countryLabels[selectedCountry].residuaryEstate}
+                  placeholder="Instructions for the remaining estate..."
                   className="input-field"
                 />
               </div>
@@ -524,7 +545,7 @@ export default function WillGeneratorPage() {
                 <textarea
                   value={beneficiaries}
                   onChange={(e) => setBeneficiaries(e.target.value)}
-                  placeholder={countryLabels[selectedCountry].beneficiaries}
+                  placeholder="List all beneficiaries and their relationships..."
                   className="input-field"
                 />
               </div>
@@ -548,11 +569,11 @@ export default function WillGeneratorPage() {
           </div>
         )}
 
-        {/* Final Step */}
+        {/* Final Step: Additional Instructions */}
         {currentStep === 5 && (
           <div>
             <h2 className="text-xl font-semibold mb-2 border-b pb-1">
-              {countryLabels[selectedCountry].funeralInstructions}
+              Additional Instructions
             </h2>
             <div className="grid grid-cols-1 gap-4">
               <label className="block mb-1 font-medium">
@@ -561,7 +582,16 @@ export default function WillGeneratorPage() {
               <textarea
                 value={funeralInstructions}
                 onChange={(e) => setFuneralInstructions(e.target.value)}
-                placeholder={countryLabels[selectedCountry].funeralInstructions}
+                placeholder="e.g., Provide detailed funeral and burial instructions..."
+                className="input-field"
+              />
+              <label className="block mb-1 font-medium">
+                {countryLabels[selectedCountry].legalNotes}
+              </label>
+              <textarea
+                value={legalNotes}
+                onChange={(e) => setLegalNotes(e.target.value)}
+                placeholder="e.g., Revocation clause, legal disclaimers..."
                 className="input-field"
               />
             </div>
@@ -589,7 +619,7 @@ export default function WillGeneratorPage() {
         {/* Loading Spinner */}
         {loading && <div className="loading-bar"></div>}
 
-        {/* Generated Will */}
+        {/* Generated Will PDF Download Button */}
         {willText && !isGenerating && (
           <div className="buttonContainer">
             <PDFDownloadButton

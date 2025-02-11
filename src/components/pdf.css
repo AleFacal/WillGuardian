@@ -1,21 +1,47 @@
-/* Styling for the container holding the button */
-.pdfButtonContainer {
-  margin-top: 40px;
-  display: flex;
-  justify-content: flex-end; /* Align to the right, like the Next/Previous buttons */
-  width: 100%; /* Full width */
-  margin-bottom: 20px;
+.pdfContainer {
+  text-align: center;
+  font-family: Arial, sans-serif;
+  margin: 2rem;
 }
 
-/* Styling for the download button */
-.pdfDownloadButton {
-  background-color: #39d36c; /* Green color */
-  color: white;
-  padding: 12px 24px;
+.pdfPreview {
+  text-align: left;
+  max-width: 600px;
+  margin: 0 auto 2rem auto;
+}
+
+.pdfSection {
+  border: 1px solid #ccc;
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  text-align: center;
-  width: 100%; /* Same width as Next and Previous buttons */
-  transition: background-color 0.3s, transform 0.2s;
+  padding: 1rem;
+  margin: 1rem 0;
+  background-color: #fdfdfd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pdfSectionTitle {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.pdfSectionContent {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.pdfDownloadButton {
+  padding: 0.75rem 1.5rem;
+  background-color: #4caf50;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.pdfDownloadButton:hover {
+  background-color: #43a047;
 }
