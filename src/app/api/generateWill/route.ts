@@ -20,18 +20,18 @@ import { NextResponse } from "next/server";
  *   funeralInstructions: string,
  *   selectedCountry: string,
  *   selectedLanguage: string,
-
+ *
  *   requiresWitnesses: boolean,
  *   hasMinorChildren: boolean,
  *   guardianName: string,
  *   backupGuardianName: string,
  *   useSelfProvingAffidavit: boolean,
-
+ *
  *   ukHasMinorChildren: boolean,
  *   ukGuardianName: string,
  *   ukBackupGuardian: string,
  *   ukAttestationClause: boolean,
-
+ *
  *   deIsHolographic: boolean,
  *   frIsAuthenticWill: boolean,
  *   esIsNotarialWill: boolean,
@@ -103,26 +103,46 @@ Provide the Testator's Details including:
 - Date of Birth
 - Residence
 - Nationality
-- Identification Number (if not provided, leave as blank underline)
+- Identification Number (if not provided, output the placeholder [ID_BLANK])
 - Marital Status
 
 <<<DECLARATION>>>
-Provide a clear declaration that this is the Last Will and Testament which revokes all previous wills and codicils.
+Include a clear declaration that this is the Last Will and Testament, revoking all previous wills and codicils.
+`;
 
+    // Include Guardian Clause section if applicable (US or UK)
+    if (
+      (selectedCountry === "us" && hasMinorChildren) ||
+      (selectedCountry === "uk" && ukHasMinorChildren)
+    ) {
+      prompt += `
+<<<GUARDIAN>>>
+Provide a Guardianship Clause for minor children.
+For US, include:
+- Guardian Name: ${guardianName}
+- Backup Guardian: ${backupGuardianName}
+
+For UK, include:
+- Guardian Name: ${ukGuardianName}
+- Backup Guardian: ${ukBackupGuardian}
+`;
+    }
+
+    prompt += `
 <<<ARTICLES>>>
 List the Articles sequentially (e.g. "Article I", "Article II", etc.) covering at least:
 - Executor Instructions (including naming an alternate executor)
 - Specific Bequests and Distribution of Assets
 - Beneficiaries
 - Funeral Instructions
-- Legal Provisions (including revocation of previous wills and any witness requirements)
+- Legal Provisions (including revocation of previous wills, any witness requirements, and, if applicable, self-proving affidavit or notarial clauses)
 `;
 
-    // If user or logic says we need a witness section
+    // If witnesses are required, include witness section marker.
     if (requiresWitnesses) {
       prompt += `
 <<<WITNESS>>>
-Provide a Witness Section with spaces for at least two witnesses to sign and provide a date.
+Include a Witness Section with spaces for at least two witnesses to sign and provide a date.
 `;
     }
 
@@ -130,14 +150,14 @@ Provide a Witness Section with spaces for at least two witnesses to sign and pro
 <<<LEGAL>>>
 Include any additional legal disclaimers or notes that are required.
 
-Please ensure that the output does NOT include any extra markdown symbols (like ** or ---) and that the section markers (the lines with <<<...>>>) appear exactly as specified.
-
-Testator's Details:
+--- Testator's Details ---
 Full Name: ${userName}
 Date of Birth: ${dob}
 Residence: ${address}
 Nationality: ${nationality}
-Identification Number: ${identificationNumber}
+Identification Number: ${
+      identificationNumber ? identificationNumber : "[ID_BLANK]"
+    }
 Marital Status: ${maritalStatus}
 
 Executor: ${executor}
@@ -151,78 +171,78 @@ Legal Notes: ${legalNotes}
 `;
 
     // ---------------------------
-    // US
+    // US-specific clauses
     // ---------------------------
     if (selectedCountry === "us") {
       if (hasMinorChildren) {
         prompt += `
-You must include a Guardianship Clause for minor children:
-Guardian: ${guardianName}
-Backup Guardian: ${backupGuardianName}
+[US] Minor Children detected. A Guardianship Clause is included in the <<<GUARDIAN>>> section.
 `;
       }
       if (useSelfProvingAffidavit) {
         prompt += `
-Please include a Self-Proving Affidavit (common in many US states) after the main will content.
+[US] Please include a Self-Proving Affidavit after the main will content.
 `;
       }
     }
 
     // ---------------------------
-    // UK
+    // UK-specific clauses
     // ---------------------------
     if (selectedCountry === "uk") {
       if (ukHasMinorChildren) {
         prompt += `
-[UK] Minor Children => Guardian: ${ukGuardianName}, Backup: ${ukBackupGuardian}
+[UK] Minor Children detected. A Guardianship Clause is included in the <<<GUARDIAN>>> section.
 `;
       }
       if (ukAttestationClause) {
         prompt += `
-[UK] Please add a formal Attestation Clause stating the will was signed in presence of two witnesses.
+[UK] Include a formal Attestation Clause confirming the will was signed in the presence of two witnesses.
 `;
       }
     }
 
     // ---------------------------
-    // Germany
+    // Germany-specific clause
     // ---------------------------
     if (selectedCountry === "de" && deIsHolographic) {
       prompt += `
-[DE] This is a fully handwritten (holographic) will => no witnesses needed.
+[DE] This is a fully handwritten (holographic) will; no witnesses are required.
 `;
     }
 
     // ---------------------------
-    // France
+    // France-specific clause
     // ---------------------------
     if (selectedCountry === "fr" && frIsAuthenticWill) {
       prompt += `
-[FR] This is an authentic (notarial) will => notary + 2 witnesses usually involved.
+[FR] This is an authentic (notarial) will; typically, a notary and two witnesses are involved.
 `;
     }
 
     // ---------------------------
-    // Spain
+    // Spain-specific clause
     // ---------------------------
     if (selectedCountry === "es" && esIsNotarialWill) {
       prompt += `
-[ES] This is a notarial will => prepared with a notary in Spain.
+[ES] This is a notarial will; a notary must be involved.
 `;
     }
 
     // ---------------------------
-    // Switzerland
+    // Switzerland-specific clause
     // ---------------------------
     if (selectedCountry === "ch" && chIsPublicNotarial) {
       prompt += `
-[CH] This is a public notarial will => notary + 2 witnesses in Switzerland.
+[CH] This is a public notarial will; a notary and two witnesses are required.
 `;
     }
 
-    // ---------------------------
-    // Send to OpenAI
-    // ---------------------------
+    prompt += `
+Country: ${selectedCountry}
+Language: ${selectedLanguage}
+`;
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -253,7 +273,6 @@ Please include a Self-Proving Affidavit (common in many US states) after the mai
 
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || "No response from AI.";
-
     return NextResponse.json({ result: text });
   } catch (error) {
     console.error("Error generating testament:", error);

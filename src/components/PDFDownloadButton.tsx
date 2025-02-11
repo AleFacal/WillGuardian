@@ -5,7 +5,7 @@ import fontkit from "@pdf-lib/fontkit";
 import "./pdf.css";
 
 // ------------------------
-// Dimensions & Constants
+// Page Dimensions
 // ------------------------
 const PAGE_WIDTH = 600;
 const PAGE_HEIGHT = 800;
@@ -15,17 +15,18 @@ const BOTTOM_MARGIN = 60;
 const SIDE_MARGIN = 60;
 const MAX_TEXT_WIDTH = PAGE_WIDTH - SIDE_MARGIN * 2;
 
+// Spacing
 const LINE_SPACING = 22;
 const EMPTY_LINE_SPACING = 12;
 
 // ------------------------
-// Country Types
+// Supported Countries
 // ------------------------
 export type CountryKey = "us" | "uk" | "de" | "ch" | "fr" | "es";
 
 // ------------------------
 // Language Mappings
-// (Adjust or expand as needed)
+// Now includes testator signature labels
 // ------------------------
 const languageMapping: Record<string, any> = {
   English: {
@@ -39,6 +40,10 @@ const languageMapping: Record<string, any> = {
       witness: "Witness Section",
       legal: "Legal Notes",
     },
+    // New fields for testator signature block
+    testatorSignatureLabel: "Testator's Signature:",
+    testatorSignatureLine:
+      "Signature: _________________________    Date: ___________",
   },
   German: {
     title: "LETZTER WILLE UND TESTAMENT",
@@ -51,12 +56,16 @@ const languageMapping: Record<string, any> = {
       witness: "Zeugenabschnitt",
       legal: "Rechtliche Hinweise",
     },
+    // Translated
+    testatorSignatureLabel: "Unterschrift des Erblassers:",
+    testatorSignatureLine:
+      "Unterschrift: _________________________    Datum: ___________",
   },
-  // ...Add more languages if you wish...
+  // Add more languages if needed...
 };
 
 // ------------------------
-// Article Regex
+// Regex for "Article X" headings
 // ------------------------
 const universalArticleRegex = new RegExp(
   "^(Article|Artículo|Artikel|Articolo)\\s+(\\d+|[IVXLCDM]+).*",
@@ -75,20 +84,20 @@ const SECTION_MARKERS = {
 };
 
 // ------------------------
-// Utility: Clean AI Text
+// Clean Text
 // ------------------------
 function cleanTextWithMarkers(text: string): string {
   return text
-    .replace(/\*\*/g, "") // remove leftover markdown bold
-    .replace(/^-{2,}$/gm, "") // remove lines of repeated dashes
+    .replace(/\*\*/g, "")
+    .replace(/^-{2,}$/gm, "")
     .replace(/\[Fügen Sie .+?\]/g, "____________________")
     .replace(/^(SEITE|Page)\s*\d+/gim, "")
-    .replace(/<<<[^>]+>>>/g, "") // remove leftover markers
+    .replace(/<<<[^>]+>>>/g, "")
     .trim();
 }
 
 // ------------------------
-// Utility: Parse Sections
+// Parse Sections
 // ------------------------
 function parseSections(text: string): Record<string, string> {
   const sections: Record<string, string> = {};
@@ -109,7 +118,7 @@ function parseSections(text: string): Record<string, string> {
 }
 
 // ------------------------
-// Utility: Wrap a single line
+// Wrap a Single Line
 // ------------------------
 function wrapTextLine(
   text: string,
@@ -119,7 +128,7 @@ function wrapTextLine(
 ): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
-  for (let w of words) {
+  for (const w of words) {
     if (!lines.length) {
       lines.push(w);
     } else {
@@ -136,7 +145,7 @@ function wrapTextLine(
 }
 
 // ------------------------
-// Utility: Split lines -> paragraphs
+// Split Lines -> Paragraphs
 // ------------------------
 function splitIntoParagraphs(lines: string[]): string[][] {
   const paragraphs: string[][] = [];
@@ -155,8 +164,7 @@ function splitIntoParagraphs(lines: string[]): string[][] {
 }
 
 // ------------------------
-// Utility: Split articles -> blocks
-// (Each block starts with "Article X")
+// Split Articles -> Blocks
 // ------------------------
 function splitArticlesIntoBlocks(lines: string[]): string[][] {
   const blocks: string[][] = [];
@@ -179,7 +187,7 @@ function splitArticlesIntoBlocks(lines: string[]): string[][] {
 }
 
 // ------------------------
-// Utility: Ensure Space or Add Page
+// Ensure Space or Add Page
 // ------------------------
 function ensureSpace(
   currentY: number,
@@ -198,7 +206,8 @@ function ensureSpace(
 }
 
 // ------------------------
-// Optional: Custom Witness Layout
+// drawCustomWitnessSection
+// optional usage
 // ------------------------
 function drawCustomWitnessSection(
   page: any,
@@ -207,14 +216,11 @@ function drawCustomWitnessSection(
   robotoBoldFont: any,
   addNewPage: (isCover?: boolean) => any
 ): number {
-  // Estimate space
   const blockHeight = 160;
   if (yPosition - blockHeight < BOTTOM_MARGIN) {
     page = addNewPage(false);
     yPosition = PAGE_HEIGHT - CONTENT_TOP_MARGIN - 30;
   }
-
-  // Heading
   page.drawText("Witness Section", {
     x: SIDE_MARGIN,
     y: yPosition,
@@ -223,7 +229,6 @@ function drawCustomWitnessSection(
   });
   yPosition -= 30;
 
-  // Create 2 witness blocks
   for (let i = 1; i <= 2; i++) {
     page.drawText(`Witness ${i}:`, {
       x: SIDE_MARGIN,
@@ -249,13 +254,58 @@ function drawCustomWitnessSection(
     });
     yPosition -= 40;
   }
+  return yPosition;
+}
+
+// ------------------------
+// Testator's Signature
+// translated version
+// ------------------------
+function drawTestatorSignatureSection(
+  page: any,
+  yPosition: number,
+  robotoRegularFont: any,
+  robotoBoldFont: any,
+  addNewPage: (isCover?: boolean) => any,
+  selectedLanguage: string
+): number {
+  const blockHeight = 60;
+  if (yPosition - blockHeight < BOTTOM_MARGIN) {
+    page = addNewPage(false);
+    yPosition = PAGE_HEIGHT - CONTENT_TOP_MARGIN - 30;
+  }
+
+  // We retrieve the translations from languageMapping
+  const { testatorSignatureLabel, testatorSignatureLine } =
+    languageMapping[selectedLanguage] || {};
+
+  // Fallback if language not found
+  const label = testatorSignatureLabel || "Testator's Signature:";
+  const line =
+    testatorSignatureLine ||
+    "Signature: _________________________    Date: ___________";
+
+  page.drawText(label, {
+    x: SIDE_MARGIN,
+    y: yPosition,
+    font: robotoBoldFont,
+    size: 14,
+  });
+  yPosition -= 25;
+
+  page.drawText(line, {
+    x: SIDE_MARGIN,
+    y: yPosition,
+    font: robotoRegularFont,
+    size: 12,
+  });
+  yPosition -= 35;
 
   return yPosition;
 }
 
 // ------------------------
-// The main "generatePDF" function
-// taking a "useCustomWitnessLayout" boolean
+// Main PDF Generation
 // ------------------------
 async function generatePDF(
   willText: string,
@@ -266,7 +316,6 @@ async function generatePDF(
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
-  // Load fonts
   const [robotoRegularFontBytes, robotoBoldFontBytes] = await Promise.all([
     fetch("/fonts/Roboto-Regular.ttf").then((r) => r.arrayBuffer()),
     fetch("/fonts/Roboto-Bold.ttf").then((r) => r.arrayBuffer()),
@@ -275,40 +324,35 @@ async function generatePDF(
   const robotoBoldFont = await pdfDoc.embedFont(robotoBoldFontBytes);
 
   let currentPageNumber = 1;
-
-  // Helper to create pages
   const addNewPage = (isCover: boolean = false) => {
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     if (isCover) {
-      // Cover
-      const titleText = languageMapping[selectedLanguage]?.title || "WILL";
+      const { title = "WILL", subtitle = "Testament Subtitle" } =
+        languageMapping[selectedLanguage] || {};
+
+      // Title
       const titleFontSize = 24;
-      const titleWidth = robotoBoldFont.widthOfTextAtSize(
-        titleText,
-        titleFontSize
-      );
-      page.drawText(titleText, {
+      const titleWidth = robotoBoldFont.widthOfTextAtSize(title, titleFontSize);
+      page.drawText(title, {
         x: (PAGE_WIDTH - titleWidth) / 2,
         y: PAGE_HEIGHT - COVER_TOP_MARGIN,
         font: robotoBoldFont,
         size: titleFontSize,
       });
 
-      const subtitleText =
-        languageMapping[selectedLanguage]?.subtitle || "Testament Subtitle";
+      // Subtitle
       const subtitleFontSize = 16;
-      const subtitleWidth = robotoRegularFont.widthOfTextAtSize(
-        subtitleText,
+      const subWidth = robotoRegularFont.widthOfTextAtSize(
+        subtitle,
         subtitleFontSize
       );
-      page.drawText(subtitleText, {
-        x: (PAGE_WIDTH - subtitleWidth) / 2,
+      page.drawText(subtitle, {
+        x: (PAGE_WIDTH - subWidth) / 2,
         y: PAGE_HEIGHT - COVER_TOP_MARGIN - 30,
         font: robotoRegularFont,
         size: subtitleFontSize,
       });
     } else {
-      // Page number
       page.drawText(`Page ${currentPageNumber}`, {
         x: PAGE_WIDTH - SIDE_MARGIN - 50,
         y: PAGE_HEIGHT - 30,
@@ -320,21 +364,16 @@ async function generatePDF(
     return page;
   };
 
-  // Clean & parse the AI text
   const cleanedText = cleanTextWithMarkers(willText);
   let sections = parseSections(cleanedText);
-
-  // If no recognized markers, treat entire text as "cover"
   if (!Object.keys(sections).length) {
     sections.cover = cleanedText;
   }
 
-  // We proceed in the known order
   const sectionOrder = ["cover", "declaration", "articles", "witness", "legal"];
   let page = addNewPage(true);
   let yPosition = PAGE_HEIGHT - COVER_TOP_MARGIN - 80;
 
-  // Helper to render a group of lines
   function renderBlock(blockLines: { text: string; isBold: boolean }[]) {
     const blockHeight = blockLines.length * LINE_SPACING;
     if (yPosition - blockHeight < BOTTOM_MARGIN) {
@@ -354,18 +393,20 @@ async function generatePDF(
     yPosition -= EMPTY_LINE_SPACING;
   }
 
+  // Render sections in order
   for (const sec of sectionOrder) {
-    if (!sections[sec]) continue; // skip if missing
+    if (!sections[sec]) continue;
 
-    // If not the cover, draw a heading
+    // If not cover, add heading
     if (sec !== "cover") {
       if (yPosition < CONTENT_TOP_MARGIN + 30) {
         page = addNewPage(false);
         yPosition = PAGE_HEIGHT - CONTENT_TOP_MARGIN - 30;
       }
-      const headingText =
-        languageMapping[selectedLanguage]?.sectionLabels[sec] ||
-        sec.toUpperCase();
+      // Retrieve localized label or fallback
+      const labelMapping = languageMapping[selectedLanguage]?.sectionLabels;
+      const headingText = labelMapping?.[sec] || sec.toUpperCase();
+
       page.drawText(headingText, {
         x: SIDE_MARGIN,
         y: yPosition,
@@ -375,8 +416,8 @@ async function generatePDF(
       yPosition -= 30;
     }
 
+    // If articles => block approach
     if (sec === "articles") {
-      // Split by article headings
       const lines = sections[sec].split("\n");
       const articleBlocks = splitArticlesIntoBlocks(lines);
       for (const blk of articleBlocks) {
@@ -401,7 +442,7 @@ async function generatePDF(
         renderBlock(wrapped);
       }
     } else if (sec === "witness") {
-      // If we want to skip the AI text, use custom layout
+      // If user wants custom layout
       if (useCustomWitnessLayout) {
         yPosition = drawCustomWitnessSection(
           page,
@@ -411,7 +452,7 @@ async function generatePDF(
           addNewPage
         );
       } else {
-        // Otherwise, use paragraphs from AI
+        // Use AI text
         const lines = sections[sec].split("\n");
         const paragraphs = splitIntoParagraphs(lines);
         for (const para of paragraphs) {
@@ -434,7 +475,7 @@ async function generatePDF(
         }
       }
     } else {
-      // cover, declaration, legal -> normal paragraphs
+      // cover, declaration, legal => normal paragraphs
       const lines = sections[sec].split("\n");
       const paragraphs = splitIntoParagraphs(lines);
       for (const para of paragraphs) {
@@ -458,9 +499,9 @@ async function generatePDF(
     }
   }
 
-  // If no "legal" => add disclaimers at bottom
+  // If no "legal" => disclaimers
   if (!sections.legal) {
-    const disclaimer = languageMapping[selectedLanguage]?.disclaimer || "";
+    const { disclaimer = "" } = languageMapping[selectedLanguage] || {};
     if (disclaimer) {
       const discWidth = robotoRegularFont.widthOfTextAtSize(disclaimer, 12);
       if (yPosition - 12 - 20 < BOTTOM_MARGIN) {
@@ -477,27 +518,34 @@ async function generatePDF(
     }
   }
 
-  // Return the final PDF
-  return pdfDoc.save();
+  // Final step: draw testator signature line in selected language
+  yPosition = drawTestatorSignatureSection(
+    page,
+    yPosition,
+    robotoRegularFont,
+    robotoBoldFont,
+    addNewPage,
+    selectedLanguage
+  );
+
+  return await pdfDoc.save();
 }
 
 // ------------------------
-// PDFGenerator Component
+// Props for PDFGenerator
 // ------------------------
 export interface PDFGeneratorProps {
   willText: string;
   selectedCountry: CountryKey;
   selectedLanguage: string;
-  /** If true, automatically downloads PDF on render. Otherwise shows a button. */
   autoGenerate?: boolean;
-  /**
-   * If true, we ignore any 'witness' text from the AI
-   * and forcibly render a 2-witness signature layout.
-   * If false or undefined, we use the AI's text if present.
-   */
+  /** If true, skip AI text for witness and use custom layout. */
   useCustomWitnessLayout?: boolean;
 }
 
+// ------------------------
+// PDFGenerator Component
+// ------------------------
 export default function PDFGenerator({
   willText,
   selectedCountry,
@@ -508,7 +556,6 @@ export default function PDFGenerator({
   const pdfCacheRef = useRef<Uint8Array | null>(null);
 
   const handleDownload = async () => {
-    // If we haven't generated the PDF yet, do so now
     if (!pdfCacheRef.current) {
       pdfCacheRef.current = await generatePDF(
         willText,
@@ -517,7 +564,6 @@ export default function PDFGenerator({
         useCustomWitnessLayout
       );
     }
-    // Download the PDF from memory
     const blob = new Blob([pdfCacheRef.current], { type: "application/pdf" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -525,9 +571,8 @@ export default function PDFGenerator({
     link.click();
   };
 
-  // If autoGenerate, create & download automatically
   useEffect(() => {
-    pdfCacheRef.current = null; // reset cache if props changed
+    pdfCacheRef.current = null;
     if (autoGenerate && willText) {
       handleDownload();
     }
