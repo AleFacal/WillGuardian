@@ -27,15 +27,29 @@ import { NextResponse } from "next/server";
  *   backupGuardianName: string,
  *   useSelfProvingAffidavit: boolean,
  *
+ *   // US-specific
+ *   usState: string,
+ *
+ *   // UK-specific
  *   ukHasMinorChildren: boolean,
  *   ukGuardianName: string,
  *   ukBackupGuardian: string,
  *   ukAttestationClause: boolean,
  *
+ *   // Germany-specific
  *   deIsHolographic: boolean,
+ *
+ *   // France-specific
  *   frIsAuthenticWill: boolean,
+ *   frIsHolographic: boolean,
+ *
+ *   // Spain-specific
  *   esIsNotarialWill: boolean,
- *   chIsPublicNotarial: boolean
+ *   esIsHolographic: boolean,
+ *
+ *   // Switzerland-specific
+ *   chIsPublicNotarial: boolean,
+ *   chIsHolographic: boolean
  * }
  */
 export async function POST(request: Request) {
@@ -65,6 +79,7 @@ export async function POST(request: Request) {
       guardianName,
       backupGuardianName,
       useSelfProvingAffidavit,
+      usState,
 
       // UK
       ukHasMinorChildren,
@@ -77,12 +92,15 @@ export async function POST(request: Request) {
 
       // FR
       frIsAuthenticWill,
+      frIsHolographic,
 
       // ES
       esIsNotarialWill,
+      esIsHolographic,
 
       // CH
       chIsPublicNotarial,
+      chIsHolographic,
     } = body;
 
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
@@ -108,27 +126,7 @@ Provide the Testator's Details including:
 
 <<<DECLARATION>>>
 Include a clear declaration that this is the Last Will and Testament, revoking all previous wills and codicils.
-`;
 
-    // Include Guardian Clause section if applicable (US or UK)
-    if (
-      (selectedCountry === "us" && hasMinorChildren) ||
-      (selectedCountry === "uk" && ukHasMinorChildren)
-    ) {
-      prompt += `
-<<<GUARDIAN>>>
-Provide a Guardianship Clause for minor children.
-For US, include:
-- Guardian Name: ${guardianName}
-- Backup Guardian: ${backupGuardianName}
-
-For UK, include:
-- Guardian Name: ${ukGuardianName}
-- Backup Guardian: ${ukBackupGuardian}
-`;
-    }
-
-    prompt += `
 <<<ARTICLES>>>
 List the Articles sequentially (e.g. "Article I", "Article II", etc.) covering at least:
 - Executor Instructions (including naming an alternate executor)
@@ -138,7 +136,6 @@ List the Articles sequentially (e.g. "Article I", "Article II", etc.) covering a
 - Legal Provisions (including revocation of previous wills, any witness requirements, and, if applicable, self-proving affidavit or notarial clauses)
 `;
 
-    // If witnesses are required, include witness section marker.
     if (requiresWitnesses) {
       prompt += `
 <<<WITNESS>>>
@@ -170,72 +167,77 @@ Funeral Instructions: ${funeralInstructions || "Not Provided"}
 Legal Notes: ${legalNotes}
 `;
 
-    // ---------------------------
-    // US-specific clauses
-    // ---------------------------
     if (selectedCountry === "us") {
+      if (usState) {
+        prompt += `
+[US] State: ${usState}. Ensure compliance with notarization and self-proving affidavit requirements.
+`;
+      }
       if (hasMinorChildren) {
         prompt += `
-[US] Minor Children detected. A Guardianship Clause is included in the <<<GUARDIAN>>> section.
+[US] Minor Children detected. Include a Guardianship Clause with Primary: ${guardianName}, Backup: ${backupGuardianName}.
 `;
       }
       if (useSelfProvingAffidavit) {
         prompt += `
-[US] Please include a Self-Proving Affidavit after the main will content.
+[US] Include a Self-Proving Affidavit after the main will content.
 `;
       }
     }
 
-    // ---------------------------
-    // UK-specific clauses
-    // ---------------------------
     if (selectedCountry === "uk") {
       if (ukHasMinorChildren) {
         prompt += `
-[UK] Minor Children detected. A Guardianship Clause is included in the <<<GUARDIAN>>> section.
+[UK] Minor Children detected. Include a Guardianship Clause with Guardian: ${ukGuardianName}, Backup: ${ukBackupGuardian}.
 `;
       }
       if (ukAttestationClause) {
         prompt += `
-[UK] Include a formal Attestation Clause confirming the will was signed in the presence of two witnesses.
+[UK] Include a formal Attestation Clause confirming simultaneous witness signing.
 `;
       }
     }
 
-    // ---------------------------
-    // Germany-specific clause
-    // ---------------------------
     if (selectedCountry === "de" && deIsHolographic) {
       prompt += `
-[DE] This is a fully handwritten (holographic) will; no witnesses are required.
+[DE] This is a fully handwritten (holographic) will; no witnesses required.
 `;
     }
 
-    // ---------------------------
-    // France-specific clause
-    // ---------------------------
-    if (selectedCountry === "fr" && frIsAuthenticWill) {
-      prompt += `
+    if (selectedCountry === "fr") {
+      if (frIsHolographic) {
+        prompt += `
+[FR] This is a fully handwritten (holographic) will; no witnesses required.
+`;
+      } else if (frIsAuthenticWill) {
+        prompt += `
 [FR] This is an authentic (notarial) will; typically, a notary and two witnesses are involved.
 `;
+      }
     }
 
-    // ---------------------------
-    // Spain-specific clause
-    // ---------------------------
-    if (selectedCountry === "es" && esIsNotarialWill) {
-      prompt += `
-[ES] This is a notarial will; a notary must be involved.
+    if (selectedCountry === "es") {
+      if (esIsHolographic) {
+        prompt += `
+[ES] This is a fully handwritten (holographic) will; no witnesses required.
 `;
+      } else if (esIsNotarialWill) {
+        prompt += `
+[ES] This is a notarial will; notary involvement is required.
+`;
+      }
     }
 
-    // ---------------------------
-    // Switzerland-specific clause
-    // ---------------------------
-    if (selectedCountry === "ch" && chIsPublicNotarial) {
-      prompt += `
+    if (selectedCountry === "ch") {
+      if (chIsHolographic) {
+        prompt += `
+[CH] This is a fully handwritten (holographic) will; no notary or witnesses required.
+`;
+      } else if (chIsPublicNotarial) {
+        prompt += `
 [CH] This is a public notarial will; a notary and two witnesses are required.
 `;
+      }
     }
 
     prompt += `

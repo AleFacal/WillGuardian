@@ -1,18 +1,49 @@
-// File: WillGeneratorPage.tsx
 "use client";
 
 import "./styles.css";
 import { useState, useEffect } from "react";
 import { generateWill } from "@/lib/openai";
 import PDFDownloadButton from "@/components/PDFDownloadButton";
-import { CountryKey } from "@/components/PDFDownloadButton";
+import { generatePDF, CountryKey } from "@/components/PDFGenerator";
+
+type CountryLabels = {
+  countrySelection: string;
+  fullName: string;
+  dob: string;
+  address: string;
+  nationality: string;
+  maritalStatus: string;
+  executor: string;
+  alternateExecutor: string;
+  executorInstructions: string;
+  specificBequests: string;
+  residuaryEstate: string;
+  beneficiaries: string;
+  funeralInstructions: string;
+  legalNotes: string;
+  idNumber: string;
+  minorChildren?: string;
+  guardianName?: string;
+  backupGuardianName?: string;
+  selfProvingAffidavit?: string;
+  usState?: string;
+  ukHasMinorChildren?: string;
+  ukGuardianName?: string;
+  ukBackupGuardian?: string;
+  ukAttestationClause?: string;
+  deIsHolographic?: string;
+  frIsAuthenticWill?: string;
+  frIsHolographic?: string;
+  esIsNotarialWill?: string;
+  esIsHolographic?: string;
+  chIsPublicNotarial?: string;
+  chIsHolographic?: string;
+};
 
 export default function WillGeneratorPage() {
   const [currentStep, setCurrentStep] = useState(1);
 
-  // ---------------------------
-  // Universal Fields
-  // ---------------------------
+  // Universal fields
   const [fullName, setFullName] = useState("");
   const [dob, setDob] = useState("");
   const [address, setAddress] = useState("");
@@ -20,76 +51,62 @@ export default function WillGeneratorPage() {
   const [maritalStatus, setMaritalStatus] = useState("");
   const [idNumber, setIdNumber] = useState("");
 
-  // Executor
+  // Executor info
   const [executor, setExecutor] = useState("");
   const [alternateExecutor, setAlternateExecutor] = useState("");
   const [executorInstructions, setExecutorInstructions] = useState("");
 
-  // Bequests
+  // Bequests & beneficiaries
   const [specificBequests, setSpecificBequests] = useState("");
   const [residuaryEstate, setResiduaryEstate] = useState("");
   const [beneficiaries, setBeneficiaries] = useState("");
 
-  // Additional
+  // Additional instructions
   const [funeralInstructions, setFuneralInstructions] = useState("");
   const [legalNotes, setLegalNotes] = useState("");
 
-  // ---------------------------
-  // US-Specific
-  // ---------------------------
+  // US-specific
   const [hasMinorChildren, setHasMinorChildren] = useState(false);
   const [guardianName, setGuardianName] = useState("");
   const [backupGuardianName, setBackupGuardianName] = useState("");
   const [useSelfProvingAffidavit, setUseSelfProvingAffidavit] = useState(false);
+  const [usState, setUsState] = useState("");
 
-  // ---------------------------
-  // UK-Specific
-  //  Example: minor children, guardians, or a "formal attestation" toggle
-  // ---------------------------
+  // UK-specific
   const [ukHasMinorChildren, setUkHasMinorChildren] = useState(false);
   const [ukGuardianName, setUkGuardianName] = useState("");
   const [ukBackupGuardian, setUkBackupGuardian] = useState("");
   const [ukAttestationClause, setUkAttestationClause] = useState(false);
 
-  // ---------------------------
-  // Germany-Specific
-  // ---------------------------
+  // Germany-specific
   const [deIsHolographic, setDeIsHolographic] = useState(false);
 
-  // ---------------------------
-  // France-Specific
-  // ---------------------------
+  // France-specific
   const [frIsAuthenticWill, setFrIsAuthenticWill] = useState(false);
+  const [frIsHolographic, setFrIsHolographic] = useState(false);
 
-  // ---------------------------
-  // Spain-Specific
-  // ---------------------------
+  // Spain-specific
   const [esIsNotarialWill, setEsIsNotarialWill] = useState(false);
+  const [esIsHolographic, setEsIsHolographic] = useState(false);
 
-  // ---------------------------
-  // Switzerland-Specific
-  // ---------------------------
+  // Switzerland-specific
   const [chIsPublicNotarial, setChIsPublicNotarial] = useState(false);
+  const [chIsHolographic, setChIsHolographic] = useState(false);
 
-  // ---------------------------
   // Country & Language
-  // ---------------------------
   const [selectedCountry, setSelectedCountry] = useState<CountryKey>("us");
   const [selectedLanguage, setSelectedLanguage] = useState("English");
 
-  // Steps
-  const [confirmDeclaration, setConfirmDeclaration] = useState(false);
+  // Generated output state
   const [willText, setWillText] = useState("");
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+
+  // UI flags
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
-
-  // for feedback
   const [copySuccess, setCopySuccess] = useState("");
 
-  // ---------------------------
-  // Countries & Language Options
-  // ---------------------------
   const countryOptions = [
     { value: "us", label: "United States" },
     { value: "uk", label: "United Kingdom" },
@@ -116,16 +133,14 @@ export default function WillGeneratorPage() {
     setSelectedLanguage(lang);
   }, [selectedCountry]);
 
-  // ---------------------------
-  // Localized Label (example)
-  // ---------------------------
-  const countryLabels = {
+  const countryLabels: Record<CountryKey, CountryLabels> = {
     us: {
       countrySelection: "Country Selection (US)",
       fullName: "Full Name (US)",
       dob: "Date of Birth (YYYY-MM-DD)",
       address: "Residential Address (US)",
       nationality: "Nationality (US)",
+      maritalStatus: "Marital Status (US)",
       executor: "Executor (trusted person)",
       alternateExecutor: "Alternate Executor (backup)",
       executorInstructions: "Instructions for the Executor (US)",
@@ -134,22 +149,12 @@ export default function WillGeneratorPage() {
       beneficiaries: "Beneficiaries (US)",
       funeralInstructions: "Funeral Instructions (US)",
       legalNotes: "Legal Notes/Revocation Clause (US)",
-      /** The key that TS was complaining about: */
       idNumber: "Identification Number (US)",
-      /** US-specific toggles: */
       minorChildren: "Do you have minor children? (US)",
       guardianName: "Guardian Name (US)",
       backupGuardianName: "Backup Guardian (US)",
       selfProvingAffidavit: "Use Self-Proving Affidavit? (US)",
-      /** We can add placeholders for the other toggles so TS is happy: */
-      ukHasMinorChildren: "",
-      ukGuardianName: "",
-      ukBackupGuardian: "",
-      ukAttestationClause: "",
-      deIsHolographic: "",
-      frIsAuthenticWill: "",
-      esIsNotarialWill: "",
-      chIsPublicNotarial: "",
+      usState: "State (US)",
     },
     uk: {
       countrySelection: "Country Selection (UK)",
@@ -157,6 +162,7 @@ export default function WillGeneratorPage() {
       dob: "Date of Birth (DD/MM/YYYY)",
       address: "Address (UK)",
       nationality: "Nationality (UK)",
+      maritalStatus: "Marital Status (UK)",
       executor: "Executor (UK)",
       alternateExecutor: "Alternate Executor (UK)",
       executorInstructions: "Executor Instructions (UK)",
@@ -166,20 +172,10 @@ export default function WillGeneratorPage() {
       funeralInstructions: "Funeral Instructions (UK)",
       legalNotes: "Legal Notes (UK)",
       idNumber: "Identification Number (UK)",
-      /** UK-specific toggles: */
       ukHasMinorChildren: "Do you have minor children? (UK)",
       ukGuardianName: "Guardian Name (UK)",
       ukBackupGuardian: "Backup Guardian (UK)",
       ukAttestationClause: "Need formal attestation clause? (UK)",
-      /** Fill in placeholders for other countries’ toggles: */
-      minorChildren: "",
-      guardianName: "",
-      backupGuardianName: "",
-      selfProvingAffidavit: "",
-      deIsHolographic: "",
-      frIsAuthenticWill: "",
-      esIsNotarialWill: "",
-      chIsPublicNotarial: "",
     },
     de: {
       countrySelection: "Länderauswahl (DE)",
@@ -187,6 +183,7 @@ export default function WillGeneratorPage() {
       dob: "Geburtsdatum (TT.MM.JJJJ)",
       address: "Adresse (DE)",
       nationality: "Nationalität (DE)",
+      maritalStatus: "Familienstand (DE)",
       executor: "Testamentsvollstrecker (DE)",
       alternateExecutor: "Stellv. Testamentsvollstrecker (DE)",
       executorInstructions: "Anweisungen (DE)",
@@ -196,20 +193,7 @@ export default function WillGeneratorPage() {
       funeralInstructions: "Bestattungsanweisungen (DE)",
       legalNotes: "Rechtliche Hinweise (DE)",
       idNumber: "Identifikationsnummer (DE)",
-      /** Germany-specific toggle: */
       deIsHolographic: "Is this a fully handwritten (holographic) will? (DE)",
-      /** placeholders for other country toggles: */
-      minorChildren: "",
-      guardianName: "",
-      backupGuardianName: "",
-      selfProvingAffidavit: "",
-      ukHasMinorChildren: "",
-      ukGuardianName: "",
-      ukBackupGuardian: "",
-      ukAttestationClause: "",
-      frIsAuthenticWill: "",
-      esIsNotarialWill: "",
-      chIsPublicNotarial: "",
     },
     fr: {
       countrySelection: "Sélection du pays",
@@ -217,6 +201,7 @@ export default function WillGeneratorPage() {
       dob: "Date de naissance (JJ/MM/AAAA)",
       address: "Adresse",
       nationality: "Nationalité",
+      maritalStatus: "État civil",
       executor: "Exécuteur testamentaire",
       alternateExecutor: "Exécuteur suppléant",
       executorInstructions: "Instructions",
@@ -226,20 +211,8 @@ export default function WillGeneratorPage() {
       funeralInstructions: "Instructions funéraires",
       legalNotes: "Notes légales",
       idNumber: "Identifiant",
-      /** France-specific toggle: */
-      frIsAuthenticWill: "S'agit-il d'un testament authentique (notarié)?",
-      /** placeholders for others: */
-      minorChildren: "",
-      guardianName: "",
-      backupGuardianName: "",
-      selfProvingAffidavit: "",
-      ukHasMinorChildren: "",
-      ukGuardianName: "",
-      ukBackupGuardian: "",
-      ukAttestationClause: "",
-      deIsHolographic: "",
-      esIsNotarialWill: "",
-      chIsPublicNotarial: "",
+      frIsAuthenticWill: "Testament authentique (notarié)",
+      frIsHolographic: "Testament holographique (entièrement manuscrit)",
     },
     es: {
       countrySelection: "Selección de país",
@@ -247,6 +220,7 @@ export default function WillGeneratorPage() {
       dob: "Fecha de nacimiento (DD/MM/AAAA)",
       address: "Dirección",
       nationality: "Nacionalidad",
+      maritalStatus: "Estado civil",
       executor: "Ejecutor del testamento",
       alternateExecutor: "Ejecutor alternativo",
       executorInstructions: "Instrucciones",
@@ -256,20 +230,8 @@ export default function WillGeneratorPage() {
       funeralInstructions: "Instrucciones funerarias",
       legalNotes: "Notas legales",
       idNumber: "Número de identificación",
-      /** Spain-specific toggle: */
-      esIsNotarialWill: "Es esto un testamento notarial?",
-      /** placeholders for others: */
-      minorChildren: "",
-      guardianName: "",
-      backupGuardianName: "",
-      selfProvingAffidavit: "",
-      ukHasMinorChildren: "",
-      ukGuardianName: "",
-      ukBackupGuardian: "",
-      ukAttestationClause: "",
-      deIsHolographic: "",
-      frIsAuthenticWill: "",
-      chIsPublicNotarial: "",
+      esIsNotarialWill: "Testamento notarial",
+      esIsHolographic: "Testamento holográfico (entièrement manuscrit)",
     },
     ch: {
       countrySelection: "Länderauswahl (CH)",
@@ -277,6 +239,7 @@ export default function WillGeneratorPage() {
       dob: "Geburtsdatum (TT.MM.JJJJ)",
       address: "Wohnadresse (CH)",
       nationality: "Nationalität (CH)",
+      maritalStatus: "Familienstand (CH)",
       executor: "Testamentsvollstrecker (CH)",
       alternateExecutor: "Stellv. Testamentsvollstrecker (CH)",
       executorInstructions: "Anweisungen (CH)",
@@ -286,38 +249,18 @@ export default function WillGeneratorPage() {
       funeralInstructions: "Bestattungsanweisungen (CH)",
       legalNotes: "Rechtliche Hinweise (CH)",
       idNumber: "ID Nummer (CH)",
-      /** Switzerland-specific toggle: */
-      chIsPublicNotarial:
-        "Is this a public notarial will? (CH) (requires notary + 2 witnesses)",
-      /** placeholders for others: */
-      minorChildren: "",
-      guardianName: "",
-      backupGuardianName: "",
-      selfProvingAffidavit: "",
-      ukHasMinorChildren: "",
-      ukGuardianName: "",
-      ukBackupGuardian: "",
-      ukAttestationClause: "",
-      deIsHolographic: "",
-      frIsAuthenticWill: "",
-      esIsNotarialWill: "",
+      chIsPublicNotarial: "Öffentlich notarielles Testament (Notar + 2 Zeugen)",
+      chIsHolographic: "Holographisches Testament (handschriftlich)",
     },
   };
 
-  // ---------------------------
-  // Step Navigation
-  // ---------------------------
   const handleNextStep = () => setCurrentStep(currentStep + 1);
   const handlePreviousStep = () => setCurrentStep(currentStep - 1);
 
-  // ---------------------------
-  // Load & Save Draft
-  // ---------------------------
   useEffect(() => {
     const savedDraft = localStorage.getItem("willDraft");
     if (savedDraft) {
       const draft = JSON.parse(savedDraft);
-      // Load universal:
       setFullName(draft.fullName || "");
       setDob(draft.dob || "");
       setAddress(draft.address || "");
@@ -334,31 +277,22 @@ export default function WillGeneratorPage() {
       setLegalNotes(draft.legalNotes || "");
       setSelectedCountry(draft.selectedCountry || "us");
       setSelectedLanguage(draft.selectedLanguage || "English");
-      setConfirmDeclaration(draft.confirmDeclaration || false);
-
-      // US
       setHasMinorChildren(draft.hasMinorChildren || false);
       setGuardianName(draft.guardianName || "");
       setBackupGuardianName(draft.backupGuardianName || "");
       setUseSelfProvingAffidavit(draft.useSelfProvingAffidavit || false);
-
-      // UK
+      setUsState(draft.usState || "");
       setUkHasMinorChildren(draft.ukHasMinorChildren || false);
       setUkGuardianName(draft.ukGuardianName || "");
       setUkBackupGuardian(draft.ukBackupGuardian || "");
       setUkAttestationClause(draft.ukAttestationClause || false);
-
-      // DE
       setDeIsHolographic(draft.deIsHolographic || false);
-
-      // FR
       setFrIsAuthenticWill(draft.frIsAuthenticWill || false);
-
-      // ES
+      setFrIsHolographic(draft.frIsHolographic || false);
       setEsIsNotarialWill(draft.esIsNotarialWill || false);
-
-      // CH
+      setEsIsHolographic(draft.esIsHolographic || false);
       setChIsPublicNotarial(draft.chIsPublicNotarial || false);
+      setChIsHolographic(draft.chIsHolographic || false);
     }
   }, []);
 
@@ -380,31 +314,22 @@ export default function WillGeneratorPage() {
       legalNotes,
       selectedCountry,
       selectedLanguage,
-      confirmDeclaration,
-
-      // US
       hasMinorChildren,
       guardianName,
       backupGuardianName,
       useSelfProvingAffidavit,
-
-      // UK
+      usState,
       ukHasMinorChildren,
       ukGuardianName,
       ukBackupGuardian,
       ukAttestationClause,
-
-      // DE
       deIsHolographic,
-
-      // FR
       frIsAuthenticWill,
-
-      // ES
+      frIsHolographic,
       esIsNotarialWill,
-
-      // CH
+      esIsHolographic,
       chIsPublicNotarial,
+      chIsHolographic,
     };
     localStorage.setItem("willDraft", JSON.stringify(draft));
     setDraftSaved(true);
@@ -427,24 +352,26 @@ export default function WillGeneratorPage() {
     legalNotes,
     selectedCountry,
     selectedLanguage,
-    confirmDeclaration,
     hasMinorChildren,
     guardianName,
     backupGuardianName,
     useSelfProvingAffidavit,
+    usState,
     ukHasMinorChildren,
     ukGuardianName,
     ukBackupGuardian,
     ukAttestationClause,
     deIsHolographic,
     frIsAuthenticWill,
+    frIsHolographic,
     esIsNotarialWill,
+    esIsHolographic,
     chIsPublicNotarial,
+    chIsHolographic,
   ]);
 
   const clearDraft = () => {
     localStorage.removeItem("willDraft");
-    // Reset universal:
     setFullName("");
     setDob("");
     setAddress("");
@@ -461,96 +388,86 @@ export default function WillGeneratorPage() {
     setLegalNotes("");
     setSelectedCountry("us");
     setSelectedLanguage("English");
-    setConfirmDeclaration(false);
-
-    // Reset US
     setHasMinorChildren(false);
     setGuardianName("");
     setBackupGuardianName("");
     setUseSelfProvingAffidavit(false);
-
-    // Reset UK
+    setUsState("");
     setUkHasMinorChildren(false);
     setUkGuardianName("");
     setUkBackupGuardian("");
     setUkAttestationClause(false);
-
-    // DE
     setDeIsHolographic(false);
-
-    // FR
     setFrIsAuthenticWill(false);
-
-    // ES
+    setFrIsHolographic(false);
     setEsIsNotarialWill(false);
-
-    // CH
+    setEsIsHolographic(false);
     setChIsPublicNotarial(false);
+    setChIsHolographic(false);
   };
 
-  // ---------------------------
-  // Submit => Build the prompt
-  // ---------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
     setLoading(true);
-
     try {
       let prompt = `Generate a legally valid and professional Last Will and Testament in ${selectedLanguage} for the following details:\n\n`;
-
-      // Basic info
-      prompt += `Full Name: ${fullName}\nDate of Birth: ${dob}\nAddress: ${address}\nNationality: ${nationality}\nMarital Status: ${maritalStatus}\nID Number: ${idNumber}\n\n`;
-      // Executor
+      prompt += `Full Name: ${fullName}\nDate of Birth: ${dob}\nAddress: ${address}\nNationality: ${nationality}\n`;
+      // Only include marital status if provided.
+      if (maritalStatus && maritalStatus.toLowerCase() !== "undefined") {
+        prompt += `Marital Status: ${maritalStatus}\n`;
+      }
+      prompt += `Identification Number: ${
+        idNumber ? idNumber : "[ID_BLANK]"
+      }\n\n`;
       prompt += `Executor: ${executor}\nAlternate Executor: ${alternateExecutor}\nExecutor Instructions: ${executorInstructions}\n\n`;
-      // Bequests
       prompt += `Bequests & Beneficiaries:\nSpecific Bequests: ${specificBequests}\nResiduary Estate: ${residuaryEstate}\nBeneficiaries: ${beneficiaries}\n\n`;
-      // Additional
       prompt += `Funeral Instructions: ${funeralInstructions}\nLegal Notes: ${legalNotes}\n\n`;
-
-      // US
       if (selectedCountry === "us") {
         if (hasMinorChildren) {
           prompt += `Guardian Clause => Primary: ${guardianName}, Backup: ${backupGuardianName}\n\n`;
         }
         if (useSelfProvingAffidavit) {
-          prompt += `Self-Proving Affidavit requested (common in many US states)\n`;
+          prompt += `Self-Proving Affidavit requested.\n`;
+        }
+        if (usState) {
+          prompt += `State: ${usState}\n`;
         }
       }
-
-      // UK
       if (selectedCountry === "uk") {
         if (ukHasMinorChildren) {
           prompt += `UK Guardianship => Guardian: ${ukGuardianName}, Backup: ${ukBackupGuardian}\n`;
         }
         if (ukAttestationClause) {
-          prompt += `Formal Attestation Clause needed.\n`;
+          prompt += `Formal Attestation Clause needed (to be signed in the presence of exactly two witnesses simultaneously).\n`;
         }
       }
-
-      // Germany
       if (selectedCountry === "de" && deIsHolographic) {
         prompt += `This is a fully handwritten (holographic) will in Germany. No witnesses needed.\n`;
       }
-
-      // France
-      if (selectedCountry === "fr" && frIsAuthenticWill) {
-        prompt += `This is an Authentic (notarial) will in France => Notary + 2 witnesses.\n`;
+      if (selectedCountry === "fr") {
+        if (frIsHolographic) {
+          prompt += `This is a fully handwritten (holographic) will in France. No witnesses are required, but it must be entirely handwritten and signed.\n`;
+        } else if (frIsAuthenticWill) {
+          prompt += `This is an authentic (notarial) will in France. A notary and two witnesses are typically involved.\n`;
+        }
       }
-
-      // Spain
-      if (selectedCountry === "es" && esIsNotarialWill) {
-        prompt += `This is a notarial will in Spain => Notary involvement.\n`;
+      if (selectedCountry === "es") {
+        if (esIsHolographic) {
+          prompt += `This is a fully handwritten (holographic) will in Spain. No witnesses are required, but it must be entirely handwritten and signed.\n`;
+        } else if (esIsNotarialWill) {
+          prompt += `This is a notarial will in Spain. Notary involvement is required.\n`;
+        }
       }
-
-      // Switzerland
-      if (selectedCountry === "ch" && chIsPublicNotarial) {
-        prompt += `This is a public notarial will in Switzerland => Notary + 2 witnesses.\n`;
+      if (selectedCountry === "ch") {
+        if (chIsHolographic) {
+          prompt += `This is a fully handwritten (holographic) will in Switzerland. No notary or witnesses are required.\n`;
+        } else if (chIsPublicNotarial) {
+          prompt += `This is a public notarial will in Switzerland. A notary and two witnesses are required.\n`;
+        }
       }
+      // (Removed the lines that output Country and Language)
 
-      prompt += `Country: ${selectedCountry}\nLanguage: ${selectedLanguage}\n`;
-
-      // Actually call your openAI logic
       const text = await generateWill(
         fullName,
         dob,
@@ -567,15 +484,22 @@ export default function WillGeneratorPage() {
         selectedLanguage
       );
       setWillText(text);
+
+      // Generate the PDF once on submission
+      const pdf = await generatePDF(
+        text,
+        selectedLanguage,
+        selectedCountry,
+        false
+      );
+      setPdfBytes(pdf);
     } catch (error) {
       console.error("Error generating will:", error);
     }
-
     setIsGenerating(false);
     setLoading(false);
   };
 
-  // Example copy to clipboard
   const copyToClipboard = async () => {
     if (!willText) return;
     try {
@@ -587,21 +511,17 @@ export default function WillGeneratorPage() {
     }
   };
 
-  // ---------------------------
-  // Steps for UI
-  // ---------------------------
   return (
     <div className="form-box">
       <h1>Legal Last Will & Testament Generator</h1>
-
       <form onSubmit={handleSubmit} className="form-section">
         {currentStep === 1 && (
           <div>
-            <h2 className="text-xl font-semibold mb-2 border-b pb-1">
+            <h2 className="text-xl font-bold mb-2 border-b pb-1">
               {countryLabels[selectedCountry].countrySelection}
             </h2>
             <div className="grid grid-cols-1 gap-4">
-              <label className="block mb-1 font-medium">
+              <label className="block mb-1 font-bold">
                 {countryLabels[selectedCountry].countrySelection}
               </label>
               <select
@@ -632,13 +552,12 @@ export default function WillGeneratorPage() {
 
         {currentStep === 2 && (
           <div>
-            <h2 className="text-xl font-semibold mb-2 border-b pb-1">
+            <h2 className="text-xl font-bold mb-2 border-b pb-1">
               Personal Information
             </h2>
-            {/* Full name, DOB, etc. */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].fullName}
                 </label>
                 <input
@@ -649,7 +568,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].dob}
                 </label>
                 <input
@@ -660,7 +579,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].address}
                 </label>
                 <input
@@ -671,7 +590,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].nationality}
                 </label>
                 <input
@@ -682,7 +601,9 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">Marital Status</label>
+                <label className="block mb-1 font-bold">
+                  {countryLabels[selectedCountry].maritalStatus}
+                </label>
                 <input
                   type="text"
                   className="input-field"
@@ -691,7 +612,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry]?.idNumber || "ID Number"}
                 </label>
                 <input
@@ -702,159 +623,14 @@ export default function WillGeneratorPage() {
                 />
               </div>
             </div>
-
-            {/* US Minor Children */}
-            {selectedCountry === "us" && (
-              <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block font-medium mb-1">
-                  {countryLabels.us.minorChildren}
-                </label>
-                <input
-                  type="checkbox"
-                  checked={hasMinorChildren}
-                  onChange={(e) => setHasMinorChildren(e.target.checked)}
-                />
-                <span className="ml-2">Yes, minor children</span>
-
-                {hasMinorChildren && (
-                  <div className="mt-4">
-                    <label className="block mb-1 font-medium">
-                      {countryLabels.us.guardianName}
-                    </label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={guardianName}
-                      onChange={(e) => setGuardianName(e.target.value)}
-                    />
-                    <label className="block mb-1 font-medium mt-2">
-                      {countryLabels.us.backupGuardianName}
-                    </label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={backupGuardianName}
-                      onChange={(e) => setBackupGuardianName(e.target.value)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* UK Minor Children + Attestation Clause */}
-            {selectedCountry === "uk" && (
-              <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block font-medium mb-1">
-                  {countryLabels.uk.ukHasMinorChildren}
-                </label>
-                <input
-                  type="checkbox"
-                  checked={ukHasMinorChildren}
-                  onChange={(e) => setUkHasMinorChildren(e.target.checked)}
-                />
-                <span className="ml-2">Yes, minor children (UK)</span>
-
-                {ukHasMinorChildren && (
-                  <div className="mt-4">
-                    <label className="block mb-1 font-medium">
-                      {countryLabels.uk.ukGuardianName}
-                    </label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={ukGuardianName}
-                      onChange={(e) => setUkGuardianName(e.target.value)}
-                    />
-                    <label className="block mb-1 font-medium mt-2">
-                      {countryLabels.uk.ukBackupGuardian}
-                    </label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={ukBackupGuardian}
-                      onChange={(e) => setUkBackupGuardian(e.target.value)}
-                    />
-                  </div>
-                )}
-                <div className="mt-4">
-                  <label className="block mb-1 font-medium">
-                    {countryLabels.uk.ukAttestationClause}
-                  </label>
-                  <input
-                    type="checkbox"
-                    checked={ukAttestationClause}
-                    onChange={(e) => setUkAttestationClause(e.target.checked)}
-                  />
-                  <span className="ml-2">
-                    Need a formal attestation clause (UK)
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Germany Holographic Toggle */}
-            {selectedCountry === "de" && (
-              <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block mb-1 font-medium">
-                  {countryLabels.de.deIsHolographic}
-                </label>
-                <input
-                  type="checkbox"
-                  checked={deIsHolographic}
-                  onChange={(e) => setDeIsHolographic(e.target.checked)}
-                />
-                <span className="ml-2">Yes, fully handwritten (DE)</span>
-              </div>
-            )}
-
-            {/* Switzerland Public Notarial Toggle */}
-            {selectedCountry === "ch" && (
-              <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block mb-1 font-medium">
-                  {countryLabels.ch.chIsPublicNotarial}
-                </label>
-                <input
-                  type="checkbox"
-                  checked={chIsPublicNotarial}
-                  onChange={(e) => setChIsPublicNotarial(e.target.checked)}
-                />
-                <span className="ml-2">Yes, public notarial will (CH)</span>
-              </div>
-            )}
-
-            {/* France Authentic Toggle */}
-            {selectedCountry === "fr" && (
-              <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block mb-1 font-medium">
-                  {countryLabels.fr.frIsAuthenticWill}
-                </label>
-                <input
-                  type="checkbox"
-                  checked={frIsAuthenticWill}
-                  onChange={(e) => setFrIsAuthenticWill(e.target.checked)}
-                />
-                <span className="ml-2">
-                  Yes, authentic (notarial) will (FR)
-                </span>
-              </div>
-            )}
-
-            {/* Spain Notarial Toggle */}
-            {selectedCountry === "es" && (
-              <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block mb-1 font-medium">
-                  {countryLabels.es.esIsNotarialWill}
-                </label>
-                <input
-                  type="checkbox"
-                  checked={esIsNotarialWill}
-                  onChange={(e) => setEsIsNotarialWill(e.target.checked)}
-                />
-                <span className="ml-2">Yes, notarial will (ES)</span>
-              </div>
-            )}
-
-            <div className="buttonContainer single-button mt-4">
+            <div className="buttonContainer mt-4">
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                className="previousStepButton"
+              >
+                Previous
+              </button>
               <button
                 type="button"
                 onClick={handleNextStep}
@@ -868,12 +644,12 @@ export default function WillGeneratorPage() {
 
         {currentStep === 3 && (
           <div>
-            <h2 className="text-xl font-semibold mb-2 border-b pb-1">
+            <h2 className="text-xl font-bold mb-2 border-b pb-1">
               Executor Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].executor || "Executor"}
                 </label>
                 <input
@@ -884,7 +660,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].alternateExecutor ||
                     "Alternate Executor"}
                 </label>
@@ -896,7 +672,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].executorInstructions}
                 </label>
                 <textarea
@@ -927,12 +703,12 @@ export default function WillGeneratorPage() {
 
         {currentStep === 4 && (
           <div>
-            <h2 className="text-xl font-semibold mb-2 border-b pb-1">
+            <h2 className="text-xl font-bold mb-2 border-b pb-1">
               Bequests & Beneficiaries
             </h2>
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].specificBequests}
                 </label>
                 <textarea
@@ -942,7 +718,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].residuaryEstate}
                 </label>
                 <textarea
@@ -952,7 +728,7 @@ export default function WillGeneratorPage() {
                 />
               </div>
               <div>
-                <label className="block mb-1 font-medium">
+                <label className="block mb-1 font-bold">
                   {countryLabels[selectedCountry].beneficiaries}
                 </label>
                 <textarea
@@ -983,10 +759,10 @@ export default function WillGeneratorPage() {
 
         {currentStep === 5 && (
           <div>
-            <h2 className="text-xl font-semibold mb-2 border-b pb-1">
+            <h2 className="text-xl font-bold mb-2 border-b pb-1">
               Additional Instructions
             </h2>
-            <label className="block mb-1 font-medium mt-2">
+            <label className="block mb-1 font-bold mt-2">
               {countryLabels[selectedCountry].funeralInstructions}
             </label>
             <textarea
@@ -994,7 +770,7 @@ export default function WillGeneratorPage() {
               value={funeralInstructions}
               onChange={(e) => setFuneralInstructions(e.target.value)}
             />
-            <label className="block mb-1 font-medium mt-2">
+            <label className="block mb-1 font-bold mt-2">
               {countryLabels[selectedCountry].legalNotes}
             </label>
             <textarea
@@ -1003,10 +779,9 @@ export default function WillGeneratorPage() {
               onChange={(e) => setLegalNotes(e.target.value)}
             />
 
-            {/* US self-proving affidavit */}
             {selectedCountry === "us" && (
               <div className="mt-6 border p-4 bg-gray-50">
-                <label className="block font-medium mb-1">
+                <label className="block font-bold mb-1">
                   {countryLabels.us.selfProvingAffidavit}
                 </label>
                 <input
@@ -1015,6 +790,120 @@ export default function WillGeneratorPage() {
                   onChange={(e) => setUseSelfProvingAffidavit(e.target.checked)}
                 />
                 <span className="ml-2">Yes, Self-Proving Affidavit</span>
+              </div>
+            )}
+
+            {selectedCountry === "ch" && (
+              <div className="mt-6 border p-4 bg-gray-50">
+                <label className="block font-bold mb-1">
+                  Choose the will format for Switzerland:
+                </label>
+                <div>
+                  <input
+                    type="radio"
+                    name="chWillFormat"
+                    value="public"
+                    checked={chIsPublicNotarial}
+                    onChange={() => {
+                      setChIsPublicNotarial(true);
+                      setChIsHolographic(false);
+                    }}
+                  />
+                  <span className="ml-2">
+                    {countryLabels.ch.chIsPublicNotarial}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="radio"
+                    name="chWillFormat"
+                    value="holographic"
+                    checked={chIsHolographic}
+                    onChange={() => {
+                      setChIsHolographic(true);
+                      setChIsPublicNotarial(false);
+                    }}
+                  />
+                  <span className="ml-2">
+                    {countryLabels.ch.chIsHolographic}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {selectedCountry === "fr" && (
+              <div className="mt-6 border p-4 bg-gray-50">
+                <label className="block font-bold mb-1">
+                  Choose the will format for France:
+                </label>
+                <div>
+                  <input
+                    type="radio"
+                    name="frWillFormat"
+                    value="authentic"
+                    checked={frIsAuthenticWill && !frIsHolographic}
+                    onChange={() => {
+                      setFrIsAuthenticWill(true);
+                      setFrIsHolographic(false);
+                    }}
+                  />
+                  <span className="ml-2">
+                    {countryLabels.fr.frIsAuthenticWill}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="radio"
+                    name="frWillFormat"
+                    value="holographic"
+                    checked={frIsHolographic}
+                    onChange={() => {
+                      setFrIsHolographic(true);
+                      setFrIsAuthenticWill(false);
+                    }}
+                  />
+                  <span className="ml-2">
+                    {countryLabels.fr.frIsHolographic}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {selectedCountry === "es" && (
+              <div className="mt-6 border p-4 bg-gray-50">
+                <label className="block font-bold mb-1">
+                  Choose the will format for Spain:
+                </label>
+                <div>
+                  <input
+                    type="radio"
+                    name="esWillFormat"
+                    value="notarial"
+                    checked={esIsNotarialWill && !esIsHolographic}
+                    onChange={() => {
+                      setEsIsNotarialWill(true);
+                      setEsIsHolographic(false);
+                    }}
+                  />
+                  <span className="ml-2">
+                    {countryLabels.es.esIsNotarialWill}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="radio"
+                    name="esWillFormat"
+                    value="holographic"
+                    checked={esIsHolographic}
+                    onChange={() => {
+                      setEsIsHolographic(true);
+                      setEsIsNotarialWill(false);
+                    }}
+                  />
+                  <span className="ml-2">
+                    {countryLabels.es.esIsHolographic}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -1041,13 +930,9 @@ export default function WillGeneratorPage() {
 
         {loading && <div className="loading-bar"></div>}
 
-        {willText && !isGenerating && (
+        {willText && pdfBytes && !isGenerating && (
           <div className="buttonContainer mt-4">
-            <PDFDownloadButton
-              willText={willText}
-              selectedCountry={selectedCountry}
-              selectedLanguage={selectedLanguage}
-            />
+            <PDFDownloadButton pdfBytes={pdfBytes} />
           </div>
         )}
       </form>
