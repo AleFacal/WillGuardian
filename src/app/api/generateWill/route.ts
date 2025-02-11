@@ -20,7 +20,22 @@ import { NextResponse } from "next/server";
  *   funeralInstructions: string,
  *   selectedCountry: string,
  *   selectedLanguage: string,
- *   requiresWitnesses: boolean
+
+ *   requiresWitnesses: boolean,
+ *   hasMinorChildren: boolean,
+ *   guardianName: string,
+ *   backupGuardianName: string,
+ *   useSelfProvingAffidavit: boolean,
+
+ *   ukHasMinorChildren: boolean,
+ *   ukGuardianName: string,
+ *   ukBackupGuardian: string,
+ *   ukAttestationClause: boolean,
+
+ *   deIsHolographic: boolean,
+ *   frIsAuthenticWill: boolean,
+ *   esIsNotarialWill: boolean,
+ *   chIsPublicNotarial: boolean
  * }
  */
 export async function POST(request: Request) {
@@ -43,19 +58,41 @@ export async function POST(request: Request) {
       funeralInstructions,
       selectedCountry,
       selectedLanguage,
-      requiresWitnesses, // <-- pass true/false from client
+      requiresWitnesses,
+
+      // US
+      hasMinorChildren,
+      guardianName,
+      backupGuardianName,
+      useSelfProvingAffidavit,
+
+      // UK
+      ukHasMinorChildren,
+      ukGuardianName,
+      ukBackupGuardian,
+      ukAttestationClause,
+
+      // DE
+      deIsHolographic,
+
+      // FR
+      frIsAuthenticWill,
+
+      // ES
+      esIsNotarialWill,
+
+      // CH
+      chIsPublicNotarial,
     } = body;
 
-    // Validate or fallback
-    if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
         { error: "API Key is missing!" },
         { status: 500 }
       );
     }
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
-    // Build prompt
     let prompt = `
 Generate a legally valid and professional Last Will and Testament in ${selectedLanguage} for the legal requirements of ${selectedCountry}.
 The output MUST follow this exact structure with the given section identifiers (each on a separate line):
@@ -81,7 +118,7 @@ List the Articles sequentially (e.g. "Article I", "Article II", etc.) covering a
 - Legal Provisions (including revocation of previous wills and any witness requirements)
 `;
 
-    // Conditionally include the WITNESS section
+    // If user or logic says we need a witness section
     if (requiresWitnesses) {
       prompt += `
 <<<WITNESS>>>
@@ -89,12 +126,11 @@ Provide a Witness Section with spaces for at least two witnesses to sign and pro
 `;
     }
 
-    // Always include LEGAL section
     prompt += `
 <<<LEGAL>>>
 Include any additional legal disclaimers or notes that are required.
 
-Please ensure that the output does not include any extra markdown symbols (like ** or ---) and that the section markers (the lines with <<<...>>>) appear exactly as specified.
+Please ensure that the output does NOT include any extra markdown symbols (like ** or ---) and that the section markers (the lines with <<<...>>>) appear exactly as specified.
 
 Testator's Details:
 Full Name: ${userName}
@@ -114,7 +150,79 @@ Funeral Instructions: ${funeralInstructions || "Not Provided"}
 Legal Notes: ${legalNotes}
 `;
 
-    // Call OpenAI
+    // ---------------------------
+    // US
+    // ---------------------------
+    if (selectedCountry === "us") {
+      if (hasMinorChildren) {
+        prompt += `
+You must include a Guardianship Clause for minor children:
+Guardian: ${guardianName}
+Backup Guardian: ${backupGuardianName}
+`;
+      }
+      if (useSelfProvingAffidavit) {
+        prompt += `
+Please include a Self-Proving Affidavit (common in many US states) after the main will content.
+`;
+      }
+    }
+
+    // ---------------------------
+    // UK
+    // ---------------------------
+    if (selectedCountry === "uk") {
+      if (ukHasMinorChildren) {
+        prompt += `
+[UK] Minor Children => Guardian: ${ukGuardianName}, Backup: ${ukBackupGuardian}
+`;
+      }
+      if (ukAttestationClause) {
+        prompt += `
+[UK] Please add a formal Attestation Clause stating the will was signed in presence of two witnesses.
+`;
+      }
+    }
+
+    // ---------------------------
+    // Germany
+    // ---------------------------
+    if (selectedCountry === "de" && deIsHolographic) {
+      prompt += `
+[DE] This is a fully handwritten (holographic) will => no witnesses needed.
+`;
+    }
+
+    // ---------------------------
+    // France
+    // ---------------------------
+    if (selectedCountry === "fr" && frIsAuthenticWill) {
+      prompt += `
+[FR] This is an authentic (notarial) will => notary + 2 witnesses usually involved.
+`;
+    }
+
+    // ---------------------------
+    // Spain
+    // ---------------------------
+    if (selectedCountry === "es" && esIsNotarialWill) {
+      prompt += `
+[ES] This is a notarial will => prepared with a notary in Spain.
+`;
+    }
+
+    // ---------------------------
+    // Switzerland
+    // ---------------------------
+    if (selectedCountry === "ch" && chIsPublicNotarial) {
+      prompt += `
+[CH] This is a public notarial will => notary + 2 witnesses in Switzerland.
+`;
+    }
+
+    // ---------------------------
+    // Send to OpenAI
+    // ---------------------------
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -146,9 +254,7 @@ Legal Notes: ${legalNotes}
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || "No response from AI.";
 
-    return NextResponse.json({
-      result: text,
-    });
+    return NextResponse.json({ result: text });
   } catch (error) {
     console.error("Error generating testament:", error);
     return NextResponse.json({ error }, { status: 500 });

@@ -4,6 +4,9 @@ import { PDFDocument } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import "./pdf.css";
 
+// ------------------------
+// Dimensions & Constants
+// ------------------------
 const PAGE_WIDTH = 600;
 const PAGE_HEIGHT = 800;
 const COVER_TOP_MARGIN = 80;
@@ -15,8 +18,15 @@ const MAX_TEXT_WIDTH = PAGE_WIDTH - SIDE_MARGIN * 2;
 const LINE_SPACING = 22;
 const EMPTY_LINE_SPACING = 12;
 
+// ------------------------
+// Country Types
+// ------------------------
 export type CountryKey = "us" | "uk" | "de" | "ch" | "fr" | "es";
 
+// ------------------------
+// Language Mappings
+// (Adjust or expand as needed)
+// ------------------------
 const languageMapping: Record<string, any> = {
   English: {
     title: "LAST WILL AND TESTAMENT",
@@ -42,16 +52,20 @@ const languageMapping: Record<string, any> = {
       legal: "Rechtliche Hinweise",
     },
   },
-  // ... add more languages as needed ...
+  // ...Add more languages if you wish...
 };
 
-// This regex detects lines starting with "Article", "Artículo", "Artikel", "Articolo",
-// plus a Roman/Arabic numeral, e.g. "Article I", "Artículo III:", "Artikel 2 - ...", etc.
+// ------------------------
+// Article Regex
+// ------------------------
 const universalArticleRegex = new RegExp(
   "^(Article|Artículo|Artikel|Articolo)\\s+(\\d+|[IVXLCDM]+).*",
   "i"
 );
 
+// ------------------------
+// Section Markers
+// ------------------------
 const SECTION_MARKERS = {
   cover: "<<<COVER>>>",
   declaration: "<<<DECLARATION>>>",
@@ -60,16 +74,22 @@ const SECTION_MARKERS = {
   legal: "<<<LEGAL>>>",
 };
 
+// ------------------------
+// Utility: Clean AI Text
+// ------------------------
 function cleanTextWithMarkers(text: string): string {
   return text
-    .replace(/\*\*/g, "")
-    .replace(/^-{2,}$/gm, "")
+    .replace(/\*\*/g, "") // remove leftover markdown bold
+    .replace(/^-{2,}$/gm, "") // remove lines of repeated dashes
     .replace(/\[Fügen Sie .+?\]/g, "____________________")
     .replace(/^(SEITE|Page)\s*\d+/gim, "")
-    .replace(/<<<[^>]+>>>/g, "")
+    .replace(/<<<[^>]+>>>/g, "") // remove leftover markers
     .trim();
 }
 
+// ------------------------
+// Utility: Parse Sections
+// ------------------------
 function parseSections(text: string): Record<string, string> {
   const sections: Record<string, string> = {};
   const lines = text.split("\n");
@@ -88,6 +108,9 @@ function parseSections(text: string): Record<string, string> {
   return sections;
 }
 
+// ------------------------
+// Utility: Wrap a single line
+// ------------------------
 function wrapTextLine(
   text: string,
   font: any,
@@ -112,6 +135,52 @@ function wrapTextLine(
   return lines;
 }
 
+// ------------------------
+// Utility: Split lines -> paragraphs
+// ------------------------
+function splitIntoParagraphs(lines: string[]): string[][] {
+  const paragraphs: string[][] = [];
+  let current: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (current.length) paragraphs.push(current);
+      current = [];
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.length) paragraphs.push(current);
+  return paragraphs;
+}
+
+// ------------------------
+// Utility: Split articles -> blocks
+// (Each block starts with "Article X")
+// ------------------------
+function splitArticlesIntoBlocks(lines: string[]): string[][] {
+  const blocks: string[][] = [];
+  let currentBlock: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (universalArticleRegex.test(trimmed)) {
+      if (currentBlock.length) {
+        blocks.push(currentBlock);
+      }
+      currentBlock = [line];
+    } else {
+      currentBlock.push(line);
+    }
+  }
+  if (currentBlock.length) {
+    blocks.push(currentBlock);
+  }
+  return blocks;
+}
+
+// ------------------------
+// Utility: Ensure Space or Add Page
+// ------------------------
 function ensureSpace(
   currentY: number,
   requiredHeight: number,
@@ -128,50 +197,9 @@ function ensureSpace(
   return { page: null, y: currentY };
 }
 
-/** Splits any text lines into paragraphs by blank lines. */
-function splitIntoParagraphs(lines: string[]): string[][] {
-  const paragraphs: string[][] = [];
-  let currentParagraph: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      if (currentParagraph.length) {
-        paragraphs.push(currentParagraph);
-        currentParagraph = [];
-      }
-    } else {
-      currentParagraph.push(line);
-    }
-  }
-  if (currentParagraph.length) {
-    paragraphs.push(currentParagraph);
-  }
-  return paragraphs;
-}
-
-/** For articles, we want "Article X" + subsequent lines as a block. */
-function splitArticlesIntoBlocks(lines: string[]): string[][] {
-  const blocks: string[][] = [];
-  let currentBlock: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (universalArticleRegex.test(trimmed)) {
-      // new article block
-      if (currentBlock.length) {
-        blocks.push(currentBlock);
-      }
-      currentBlock = [line];
-    } else {
-      currentBlock.push(line);
-    }
-  }
-  if (currentBlock.length) {
-    blocks.push(currentBlock);
-  }
-  return blocks;
-}
-
-/** Optional custom witness layout if we want to override AI text. */
+// ------------------------
+// Optional: Custom Witness Layout
+// ------------------------
 function drawCustomWitnessSection(
   page: any,
   yPosition: number,
@@ -179,8 +207,8 @@ function drawCustomWitnessSection(
   robotoBoldFont: any,
   addNewPage: (isCover?: boolean) => any
 ): number {
-  // Approx total block size
-  const blockHeight = 160; // rough estimate for 2 lines
+  // Estimate space
+  const blockHeight = 160;
   if (yPosition - blockHeight < BOTTOM_MARGIN) {
     page = addNewPage(false);
     yPosition = PAGE_HEIGHT - CONTENT_TOP_MARGIN - 30;
@@ -195,7 +223,7 @@ function drawCustomWitnessSection(
   });
   yPosition -= 30;
 
-  // 2 Witness blocks
+  // Create 2 witness blocks
   for (let i = 1; i <= 2; i++) {
     page.drawText(`Witness ${i}:`, {
       x: SIDE_MARGIN,
@@ -225,23 +253,30 @@ function drawCustomWitnessSection(
   return yPosition;
 }
 
+// ------------------------
+// The main "generatePDF" function
+// taking a "useCustomWitnessLayout" boolean
+// ------------------------
 async function generatePDF(
   willText: string,
   selectedLanguage: string,
-  selectedCountry: string
+  selectedCountry: string,
+  useCustomWitnessLayout: boolean
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
   // Load fonts
   const [robotoRegularFontBytes, robotoBoldFontBytes] = await Promise.all([
-    fetch("/fonts/Roboto-Regular.ttf").then((res) => res.arrayBuffer()),
-    fetch("/fonts/Roboto-Bold.ttf").then((res) => res.arrayBuffer()),
+    fetch("/fonts/Roboto-Regular.ttf").then((r) => r.arrayBuffer()),
+    fetch("/fonts/Roboto-Bold.ttf").then((r) => r.arrayBuffer()),
   ]);
   const robotoRegularFont = await pdfDoc.embedFont(robotoRegularFontBytes);
   const robotoBoldFont = await pdfDoc.embedFont(robotoBoldFontBytes);
 
   let currentPageNumber = 1;
+
+  // Helper to create pages
   const addNewPage = (isCover: boolean = false) => {
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     if (isCover) {
@@ -252,30 +287,28 @@ async function generatePDF(
         titleText,
         titleFontSize
       );
-      const titleX = (PAGE_WIDTH - titleWidth) / 2;
       page.drawText(titleText, {
-        x: titleX,
+        x: (PAGE_WIDTH - titleWidth) / 2,
         y: PAGE_HEIGHT - COVER_TOP_MARGIN,
         font: robotoBoldFont,
         size: titleFontSize,
       });
 
-      // Subtitle
       const subtitleText =
         languageMapping[selectedLanguage]?.subtitle || "Testament Subtitle";
       const subtitleFontSize = 16;
-      const subWidth = robotoRegularFont.widthOfTextAtSize(
+      const subtitleWidth = robotoRegularFont.widthOfTextAtSize(
         subtitleText,
         subtitleFontSize
       );
-      const subX = (PAGE_WIDTH - subWidth) / 2;
       page.drawText(subtitleText, {
-        x: subX,
+        x: (PAGE_WIDTH - subtitleWidth) / 2,
         y: PAGE_HEIGHT - COVER_TOP_MARGIN - 30,
         font: robotoRegularFont,
         size: subtitleFontSize,
       });
     } else {
+      // Page number
       page.drawText(`Page ${currentPageNumber}`, {
         x: PAGE_WIDTH - SIDE_MARGIN - 50,
         y: PAGE_HEIGHT - 30,
@@ -287,29 +320,27 @@ async function generatePDF(
     return page;
   };
 
-  // If you want to forcibly override AI's witness text:
-  const useCustomWitnessLayout = true;
-
-  // Clean text & parse
+  // Clean & parse the AI text
   const cleanedText = cleanTextWithMarkers(willText);
   let sections = parseSections(cleanedText);
+
+  // If no recognized markers, treat entire text as "cover"
   if (!Object.keys(sections).length) {
-    // If no markers found, treat entire text as cover
     sections.cover = cleanedText;
   }
 
+  // We proceed in the known order
   const sectionOrder = ["cover", "declaration", "articles", "witness", "legal"];
   let page = addNewPage(true);
   let yPosition = PAGE_HEIGHT - COVER_TOP_MARGIN - 80;
 
-  // Helper: Render a block of lines
+  // Helper to render a group of lines
   function renderBlock(blockLines: { text: string; isBold: boolean }[]) {
     const blockHeight = blockLines.length * LINE_SPACING;
     if (yPosition - blockHeight < BOTTOM_MARGIN) {
       page = addNewPage(false);
       yPosition = PAGE_HEIGHT - CONTENT_TOP_MARGIN - 30;
     }
-
     for (const lineObj of blockLines) {
       const fontToUse = lineObj.isBold ? robotoBoldFont : robotoRegularFont;
       page.drawText(lineObj.text, {
@@ -324,9 +355,9 @@ async function generatePDF(
   }
 
   for (const sec of sectionOrder) {
-    if (!sections[sec]) continue;
+    if (!sections[sec]) continue; // skip if missing
 
-    // If not cover, add heading
+    // If not the cover, draw a heading
     if (sec !== "cover") {
       if (yPosition < CONTENT_TOP_MARGIN + 30) {
         page = addNewPage(false);
@@ -344,20 +375,15 @@ async function generatePDF(
       yPosition -= 30;
     }
 
-    // "articles" -> article blocks
-    // "witness" -> possibly override
-    // else -> paragraph-based
-
     if (sec === "articles") {
+      // Split by article headings
       const lines = sections[sec].split("\n");
       const articleBlocks = splitArticlesIntoBlocks(lines);
-
       for (const blk of articleBlocks) {
         const wrapped: { text: string; isBold: boolean }[] = [];
         for (const rawLine of blk) {
           const trimmed = rawLine.trim();
           if (!trimmed) {
-            // blank line => keep as empty line
             wrapped.push({ text: "", isBold: false });
             continue;
           }
@@ -375,8 +401,8 @@ async function generatePDF(
         renderBlock(wrapped);
       }
     } else if (sec === "witness") {
+      // If we want to skip the AI text, use custom layout
       if (useCustomWitnessLayout) {
-        // Skip AI text, just draw your own lines
         yPosition = drawCustomWitnessSection(
           page,
           yPosition,
@@ -385,10 +411,9 @@ async function generatePDF(
           addNewPage
         );
       } else {
-        // Use paragraph approach on the AI text
+        // Otherwise, use paragraphs from AI
         const lines = sections[sec].split("\n");
         const paragraphs = splitIntoParagraphs(lines);
-
         for (const para of paragraphs) {
           const wrappedParagraph: { text: string; isBold: boolean }[] = [];
           for (const rawLine of para) {
@@ -409,7 +434,7 @@ async function generatePDF(
         }
       }
     } else {
-      // Normal paragraph approach
+      // cover, declaration, legal -> normal paragraphs
       const lines = sections[sec].split("\n");
       const paragraphs = splitIntoParagraphs(lines);
       for (const para of paragraphs) {
@@ -433,7 +458,7 @@ async function generatePDF(
     }
   }
 
-  // If no "legal" -> add disclaimers
+  // If no "legal" => add disclaimers at bottom
   if (!sections.legal) {
     const disclaimer = languageMapping[selectedLanguage]?.disclaimer || "";
     if (disclaimer) {
@@ -452,17 +477,25 @@ async function generatePDF(
     }
   }
 
-  return await pdfDoc.save();
+  // Return the final PDF
+  return pdfDoc.save();
 }
 
-// -----------------------
-// Exported Component
-// -----------------------
+// ------------------------
+// PDFGenerator Component
+// ------------------------
 export interface PDFGeneratorProps {
   willText: string;
   selectedCountry: CountryKey;
   selectedLanguage: string;
+  /** If true, automatically downloads PDF on render. Otherwise shows a button. */
   autoGenerate?: boolean;
+  /**
+   * If true, we ignore any 'witness' text from the AI
+   * and forcibly render a 2-witness signature layout.
+   * If false or undefined, we use the AI's text if present.
+   */
+  useCustomWitnessLayout?: boolean;
 }
 
 export default function PDFGenerator({
@@ -470,17 +503,21 @@ export default function PDFGenerator({
   selectedCountry,
   selectedLanguage = "English",
   autoGenerate = false,
+  useCustomWitnessLayout = false,
 }: PDFGeneratorProps) {
   const pdfCacheRef = useRef<Uint8Array | null>(null);
 
   const handleDownload = async () => {
+    // If we haven't generated the PDF yet, do so now
     if (!pdfCacheRef.current) {
       pdfCacheRef.current = await generatePDF(
         willText,
         selectedLanguage,
-        selectedCountry
+        selectedCountry,
+        useCustomWitnessLayout
       );
     }
+    // Download the PDF from memory
     const blob = new Blob([pdfCacheRef.current], { type: "application/pdf" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -488,8 +525,9 @@ export default function PDFGenerator({
     link.click();
   };
 
+  // If autoGenerate, create & download automatically
   useEffect(() => {
-    pdfCacheRef.current = null; // clear cache if text changes
+    pdfCacheRef.current = null; // reset cache if props changed
     if (autoGenerate && willText) {
       handleDownload();
     }
