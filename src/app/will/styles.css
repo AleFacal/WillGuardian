@@ -224,6 +224,21 @@ label {
   animation: loading 2s infinite;
 }
 
+/* Example CSS */
+.download-button {
+  padding: 10px 20px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.download-button:hover {
+  background-color: #45a049;
+}
+
 @keyframes loading {
   0% {
     width: 0%;

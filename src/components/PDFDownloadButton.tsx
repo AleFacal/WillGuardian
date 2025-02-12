@@ -1,30 +1,25 @@
-// File: PDFDownloadButton.tsx
+// PDFDownloadButton.tsx
 import React from "react";
 
-export interface PDFDownloadButtonProps {
+interface PDFDownloadButtonProps {
   pdfBytes: Uint8Array;
 }
 
-const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({ pdfBytes }) => {
-  const handleDownload = () => {
+export default function PDFDownloadButton({
+  pdfBytes,
+}: PDFDownloadButtonProps) {
+  const downloadPDF = () => {
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "will.pdf";
+    link.download = "last_will_and_testament.pdf";
     link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   };
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <button
-        onClick={handleDownload}
-        className="pdfDownloadButton hover:bg-green-600"
-        aria-label="Download PDF"
-      >
-        Download as PDF
-      </button>
-    </div>
+    <button type="button" onClick={downloadPDF} className="download-button">
+      Download PDF
+    </button>
   );
-};
-
-export default PDFDownloadButton;
+}
